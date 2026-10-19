@@ -45,5 +45,5 @@ Addresses on record:
 - `PayoutBatch.payBatch` reverts unless every payee is on the payer's allow-list, so
   `addPayees` runs before the first batch for a new payee.
 - `PayoutBatch` holds no funds. Each line is `transferFrom(payer, payee, amount)`.
-- The rebuild and the app are described here as designed. They are built in issues #7,
-  #12, and #13.
+- The rebuild library is built (issue #7, [ledger-rebuild.md](ledger-rebuild.md)). The app
+  is described here as designed and is built in issues #12 and #13.

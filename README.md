@@ -12,8 +12,9 @@ reference, so nobody reconciles by hand.
 The first real batch, 6 invoice lines for 0.195 USDC, was paid in
 [`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056).
 Details, tie-out, and the source verification status are in
-[docs/deployments/mainnet.md](docs/deployments/mainnet.md). The ledger rebuild and the
-app are not built yet.
+[docs/deployments/mainnet.md](docs/deployments/mainnet.md). The ledger rebuild library is
+built (`src/ledger/`, run it with `bun run ledger:rebuild`, see
+[docs/ledger-rebuild.md](docs/ledger-rebuild.md)). The app is not built yet.
 
 ## What it will do
 
