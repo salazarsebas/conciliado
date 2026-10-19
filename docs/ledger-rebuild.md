@@ -59,16 +59,10 @@ Result for the first mainnet batch (block 26689516):
 ## Tests
 
 ```bash
-bun run test                    # 42 tests: money, ref, paging, pending, reverted, join, fixture
+bun run test                    # money, ref, paging, pending, reverted, join, fixture, and the landing (95 in all)
 arc-forge test                  # contract tests
 ```
 
 The fixture tests build an offline client from `fixtures/mainnet-batch-1.json`: the six
 `InvoicePaid` logs, the `BatchPaid` log, the receipt, the balances at both blocks, and the
 extra `Approval` and `Transfer` logs a real receipt carries.
-
-## Known gap
-
-`bun run typecheck` and `bun run lint` report errors in `scripts/compass-deploy.ts` on
-`main`, because it imports `@circlefin/compass-chains`, a package that is not on the public
-npm registry. They are unrelated to the ledger code, which has no typecheck or lint findings.

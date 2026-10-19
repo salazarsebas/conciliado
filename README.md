@@ -8,7 +8,8 @@ Conciliado is two pieces. `PayoutBatch` is a small contract that moves USDC from
 to each payee and emits one event per invoice line. A ledger rebuild reads those events,
 the receipt, and the payer's balances back from Arc and checks that the ledger ties to the
 payer's USDC balance change. The contract and the rebuild are built, and the contract is
-live on Arc mainnet. The web app around them is not built yet (see [Status](#status)).
+live on Arc mainnet. The web app has a read-only landing page that runs the rebuild in the
+browser; the run-a-batch flow is not built yet (see [Status](#status)).
 
 Built for Arc Microgrants: Built with Arc Studio.
 
@@ -50,16 +51,25 @@ commands [below](#run-it).
   not.
 - The first batch was sent from the command line, not from an app.
 
-### Designed, not built into screens yet
+### Built: the read-only landing
 
-- The brand book and design system are written ([docs/brand-book.md](docs/brand-book.md),
-  [docs/design-system.md](docs/design-system.md)) with tokens in
-  [docs/brand/](docs/brand/). Response-time targets are in [docs/performance.md](docs/performance.md);
-  none of them is measured yet.
+- `/` needs no wallet. It shows the local invoice list (`fixtures/mainnet-batch-1.csv`,
+  bundled), the payments ledger as deleted, and a "Rebuild from chain" button. The button
+  runs `rebuildLedger` from `src/ledger/` in the browser against Arc mainnet
+  (`https://rpc.mainnet.arc.io`, chain 5042) for the first batch, with a visible timer, then
+  shows the six rows, the network fee row, `6 of 6 matched`, and the tie-out bar. Each row
+  links to explorer.arc.io. If the RPC is unreachable it shows the last successful rebuild
+  with its UTC timestamp, or an error with no data. The code is in `src/landing/`, authored
+  in Arc Studio. The brand book and design system ([docs/brand-book.md](docs/brand-book.md),
+  [docs/design-system.md](docs/design-system.md)) are applied with the tokens in
+  [docs/brand/](docs/brand/).
+- Response times: the first browser runs are in [docs/performance.md](docs/performance.md).
+  They are local lab runs, not measurements against a deployed URL, so the targets stay
+  targets.
+- Run it with `bun run dev`, or `bun run build` and `bunx vite preview`.
 
 ### Not built yet
 
-- The landing page that shows a read-only rebuild of a real mainnet batch.
 - The run-a-batch flow (CSV upload, validation, simulation, one signed transaction).
 - A live URL. There is no deployed site yet, so there is nothing to open in a browser.
 - The demo-path end-to-end test, the threat model, and the demo video.
@@ -68,11 +78,9 @@ Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/
 
 ### Known issues
 
-- `bun run typecheck` and `bun run lint` fail outside the Arc Studio sandbox
-  ([#27](https://github.com/salazarsebas/conciliado/issues/27)). The only errors are in
-  `scripts/compass-deploy.ts`, which imports `@circlefin/compass-chains`, a package that
-  is not on the public npm registry. The ledger code and the contract tests are not
-  affected.
+- `src/tracing.ts` and `src/console-capture.ts` (Arc Studio scaffold) are still imported by
+  `src/main.tsx` and ship in the build. They post RPC parameters and console output to the
+  parent frame ([#33](https://github.com/salazarsebas/conciliado/issues/33)).
 - Source verification on explorer.arc.io is not done. The explorer answers command line
   clients with a Cloudflare challenge, so `arc-forge verify-contract` failed. The
   standard JSON input and the manual steps are in
@@ -199,8 +207,8 @@ Expected: `22 tests passed, 0 failed, 0 skipped`. Add `--force` to recompile fro
 bun run test
 ```
 
-Expected: `42 pass`, `0 fail`. They run offline against recorded chain data in
-`fixtures/`.
+Expected: `95 pass`, `0 fail` (ledger and landing). They run offline against recorded chain
+data in `fixtures/`.
 
 ### 4. Rebuild the first mainnet batch, read-only
 
@@ -227,6 +235,7 @@ Cross-check the batch on the
 | --- | --- |
 | `contracts/` | `PayoutBatch.sol` and its tests, pulled from Arc Studio |
 | `src/ledger/` | Ledger rebuild and tie-out library, with tests |
+| `src/landing/` | The read-only landing: view model, formatting, CSV parser, components, with tests |
 | `scripts/rebuild-ledger.ts` | The `ledger:rebuild` command |
 | `scripts/brand-tokens.ts` | The `brand:tokens` and `brand:check` commands for the design tokens |
 | `fixtures/` | The first mainnet batch as CSV and recorded chain data |
