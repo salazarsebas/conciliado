@@ -219,6 +219,8 @@ function makeClient(opts?: {
 const INVOICE_LIST = FIXTURE.lines.map((l) => ({
   invoiceId: l.invoiceId,
   invoiceRef: l.invoiceRef,
+  payee: l.payee,
+  amountMicro: BigInt(l.amount),
 }));
 
 // ─── Tests ────────────────────────────────────────────────────────────────
@@ -245,6 +247,7 @@ test('view-model: 6 of 6 matched from mainnet fixture', async () => {
   const vm = buildViewModel(result, INVOICE_LIST);
 
   expect(vm.matchedCount).toBe(6);
+  expect(vm.mismatchedCount).toBe(0);
   expect(vm.invoiceCount).toBe(6);
   expect(vm.matchSummary).toBe('6 of 6 matched');
 });
@@ -389,4 +392,77 @@ test('view-model: pending receipt shows pending status', async () => {
   expect(result.status).toBe('pending');
   expect(result.payoutRows).toHaveLength(0);
   expect(result.feeRow).toBeNull();
+});
+
+// ─── Mismatch view-model cases ────────────────────────────────────────────
+
+test('view-model mismatch: wrong payee => row has mismatch=true, matchWord=Mismatch', async () => {
+  const client = makeClient();
+  const WRONG_PAYEE: Address = '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+  const mismatchList = FIXTURE.lines.map((l, i) => ({
+    invoiceId: l.invoiceId,
+    invoiceRef: l.invoiceRef,
+    // First row has wrong payee, others correct
+    payee: (i === 0 ? WRONG_PAYEE : l.payee),
+    amountMicro: BigInt(l.amount),
+  }));
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT_ADDRESS,
+    payer: PAYER_ADDRESS,
+    usdc: USDC_ADDRESS,
+    target: { txHash: BATCH_TX },
+    invoiceList: mismatchList,
+  });
+  const vm = buildViewModel(result, mismatchList);
+  expect(vm.mismatchedCount).toBe(1);
+  expect(vm.matchedCount).toBe(5);
+  // The mismatch row
+  const mismatchRow = vm.payoutRows.find((r) => r.mismatch);
+  expect(mismatchRow).toBeDefined();
+  expect(mismatchRow!.matchWord).toBe('Mismatch');
+  expect(mismatchRow!.mismatchDetail?.fields).toContain('payee');
+  // matchSummary includes mismatch count
+  expect(vm.matchSummary).toContain('mismatch');
+});
+
+test('view-model mismatch: wrong amount => row has mismatch=true, matchWord=Mismatch', async () => {
+  const client = makeClient();
+  const mismatchList = FIXTURE.lines.map((l, i) => ({
+    invoiceId: l.invoiceId,
+    invoiceRef: l.invoiceRef,
+    payee: l.payee,
+    amountMicro: i === 0 ? BigInt(l.amount) + 1n : BigInt(l.amount),
+  }));
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT_ADDRESS,
+    payer: PAYER_ADDRESS,
+    usdc: USDC_ADDRESS,
+    target: { txHash: BATCH_TX },
+    invoiceList: mismatchList,
+  });
+  const vm = buildViewModel(result, mismatchList);
+  expect(vm.mismatchedCount).toBe(1);
+  expect(vm.matchedCount).toBe(5);
+  const mismatchRow = vm.payoutRows.find((r) => r.mismatch);
+  expect(mismatchRow).toBeDefined();
+  expect(mismatchRow!.matchWord).toBe('Mismatch');
+  expect(mismatchRow!.mismatchDetail?.fields).toContain('amount');
+});
+
+test('view-model mismatch: no mismatches => matchSummary has no mismatch word', async () => {
+  const client = makeClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT_ADDRESS,
+    payer: PAYER_ADDRESS,
+    usdc: USDC_ADDRESS,
+    target: { txHash: BATCH_TX },
+    invoiceList: INVOICE_LIST,
+  });
+  const vm = buildViewModel(result, INVOICE_LIST);
+  expect(vm.mismatchedCount).toBe(0);
+  expect(vm.matchSummary).toBe('6 of 6 matched');
+  expect(vm.matchSummary).not.toContain('mismatch');
 });

@@ -3,7 +3,7 @@
  * Desktop: real table. Mobile (below md): stacked cards.
  */
 
-import type { LedgerViewModel } from '../view-model.js';
+import type { LedgerViewModel, PayoutRowView } from '../view-model.js';
 import { AddressDisplay } from './AddressDisplay.js';
 import { truncateHash } from '../format.js';
 
@@ -11,14 +11,24 @@ interface Props {
   vm: LedgerViewModel;
 }
 
-function MatchIcon({ matched }: { matched: boolean }) {
-  if (matched) {
+function MatchIcon({ row }: { row: PayoutRowView }) {
+  if (row.matched) {
     return (
       <span className="inline-flex items-center gap-1 text-final text-sm">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="2,6 5,9 10,3" />
         </svg>
         Matched
+      </span>
+    );
+  }
+  if (row.mismatch) {
+    return (
+      <span className="inline-flex items-center gap-1 text-pending text-sm" title={row.mismatchDetail?.fields.join(', ')}>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6 2L6 7" /><circle cx="6" cy="9.5" r="0.75" fill="currentColor" stroke="none" />
+        </svg>
+        Mismatch
       </span>
     );
   }
@@ -50,7 +60,15 @@ export function LedgerTable({ vm }: Props) {
           </thead>
           <tbody>
             {vm.payoutRows.map((row) => (
-              <tr key={row.lineIndex} className="border-t border-line hover:bg-sunken/50 transition-colors duration-instant">
+              <tr
+                key={row.lineIndex}
+                className={[
+                  'border-t border-line transition-colors duration-instant',
+                  row.mismatch
+                    ? 'bg-pending-wash hover:bg-pending-wash/80'
+                    : 'hover:bg-sunken/50',
+                ].join(' ')}
+              >
                 <td className="px-4 py-3 tabular text-ink-muted">{row.lineIndex + 1}</td>
                 <td className="px-4 py-3 font-mono text-ink">{row.invoiceId ?? <span className="text-ink-subtle italic">On chain, not in your CSV</span>}</td>
                 <td className="px-4 py-3">
@@ -63,7 +81,7 @@ export function LedgerTable({ vm }: Props) {
                 </td>
                 <td className="px-4 py-3 text-right tabular">{row.amountDisplay}</td>
                 <td className="px-4 py-3 font-mono text-ink-subtle text-xs">{row.invoiceRefDisplay}</td>
-                <td className="px-4 py-3"><MatchIcon matched={row.matched} /></td>
+                <td className="px-4 py-3"><MatchIcon row={row} /></td>
               </tr>
             ))}
 
@@ -111,7 +129,7 @@ export function LedgerTable({ vm }: Props) {
               <AddressDisplay value={row.payee} display={row.payeeDisplay} explorerUrl={row.payeeExplorerUrl} copyLabel="Copy payee address" />
             </div>
             <div className="text-xs font-mono text-ink-subtle mb-2">{row.invoiceRefDisplay}</div>
-            <div><MatchIcon matched={row.matched} /></div>
+            <div><MatchIcon row={row} /></div>
           </div>
         ))}
 

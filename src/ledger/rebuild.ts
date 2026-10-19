@@ -59,10 +59,16 @@ export type LedgerClient = Pick<
  *      The salt field is not required and is not stored in the CSV.
  *
  * Exactly one of `salt` or `invoiceRef` must be present.
+ *
+ * Optional cross-checks (both are optional; omitting both keeps ref-only behavior):
+ *   `payee`       — compared case-insensitively against the on-chain payee address.
+ *   `amountMicro` — compared as exact bigint against the on-chain amount (6-decimal USDC).
+ * When a cross-check field is present and the on-chain value differs, the row becomes
+ * a MismatchedInvoice rather than a MatchedInvoice.
  */
 export type LocalInvoice =
-  | { invoiceId: string; salt: Hex; invoiceRef?: never }
-  | { invoiceId: string; invoiceRef: Hex; salt?: never };
+  | { invoiceId: string; salt: Hex; invoiceRef?: never; payee?: Address; amountMicro?: bigint }
+  | { invoiceId: string; invoiceRef: Hex; salt?: never; payee?: Address; amountMicro?: bigint };
 
 /** One InvoicePaid line in the reconstructed ledger. */
 export interface PayoutRow {
@@ -90,6 +96,22 @@ export interface MatchedInvoice {
   lineIndex: bigint;
   payee: Address;
   amountMicro: bigint;
+}
+
+/**
+ * A local invoice whose ref was found on-chain, but whose payee and/or amount
+ * does not match the local invoice. It is NOT counted as matched.
+ */
+export interface MismatchedInvoice {
+  invoiceId: string;
+  ref: Hex;
+  lineIndex: bigint;
+  /** What the local invoice expected (only the fields that were provided). */
+  expected: { payee?: Address; amountMicro?: bigint };
+  /** What was actually found on chain. */
+  actual: { payee: Address; amountMicro: bigint };
+  /** Which fields differ. */
+  fields: Array<'payee' | 'amount'>;
 }
 
 /** Full result returned by rebuildLedger. */
@@ -125,10 +147,12 @@ export interface LedgerResult {
 
   // Invoice join
   matched: MatchedInvoice[];
-  unmatchedOnChain: Hex[];   // refs on-chain with no local invoice hashing to them
-  unmatchedLocal: LocalInvoice[]; // local invoices whose ref is not on-chain for this batch
+  mismatched: MismatchedInvoice[];   // ref found on-chain but payee or amount differs
+  unmatchedOnChain: Hex[];           // refs on-chain with no local invoice hashing to them
+  unmatchedLocal: LocalInvoice[];    // local invoices whose ref is not on-chain for this batch
 
   matchedCount: number;
+  mismatchedCount: number;
   unmatchedOnChainCount: number;
   unmatchedLocalCount: number;
 
@@ -475,21 +499,49 @@ export async function rebuildLedger(args: RebuildArgs): Promise<LedgerResult> {
 function buildJoin(
   payoutRows: PayoutRow[],
   invoiceList: LocalInvoice[],
-): Pick<LedgerResult, 'matched' | 'unmatchedOnChain' | 'unmatchedLocal' | 'matchedCount' | 'unmatchedOnChainCount' | 'unmatchedLocalCount'> {
+): Pick<LedgerResult, 'matched' | 'mismatched' | 'unmatchedOnChain' | 'unmatchedLocal' | 'matchedCount' | 'mismatchedCount' | 'unmatchedOnChainCount' | 'unmatchedLocalCount'> {
   const onChainRefSet = new Map<string, PayoutRow>();
   for (const row of payoutRows) {
     onChainRefSet.set(row.invoiceRef.toLowerCase(), row);
   }
 
   const matched: MatchedInvoice[] = [];
+  const mismatched: MismatchedInvoice[] = [];
   const unmatchedLocal: LocalInvoice[] = [];
-  const matchedRefs = new Set<string>();
+  // Tracks refs claimed by matched OR mismatched (so they are not also unmatchedOnChain)
+  const claimedRefs = new Set<string>();
 
   for (const inv of invoiceList) {
     // Resolve the ref: use the pre-computed one (CSV path) or derive it (salt path).
     const ref: Hex = inv.invoiceRef ?? makeInvoiceRef(inv.invoiceId, inv.salt);
     const row = onChainRefSet.get(ref.toLowerCase());
-    if (row) {
+    if (!row) {
+      unmatchedLocal.push(inv);
+      continue;
+    }
+
+    // Cross-check payee and amount when the local invoice provides them.
+    const fields: Array<'payee' | 'amount'> = [];
+    if (inv.payee !== undefined && inv.payee.toLowerCase() !== row.payee.toLowerCase()) {
+      fields.push('payee');
+    }
+    if (inv.amountMicro !== undefined && inv.amountMicro !== row.amountMicro) {
+      fields.push('amount');
+    }
+
+    if (fields.length > 0) {
+      mismatched.push({
+        invoiceId: inv.invoiceId,
+        ref,
+        lineIndex: row.lineIndex,
+        expected: {
+          ...(inv.payee !== undefined ? { payee: inv.payee } : {}),
+          ...(inv.amountMicro !== undefined ? { amountMicro: inv.amountMicro } : {}),
+        },
+        actual: { payee: row.payee, amountMicro: row.amountMicro },
+        fields,
+      });
+    } else {
       matched.push({
         invoiceId: inv.invoiceId,
         ...(inv.salt !== undefined ? { salt: inv.salt } : {}),
@@ -498,24 +550,24 @@ function buildJoin(
         payee: row.payee,
         amountMicro: row.amountMicro,
       });
-      matchedRefs.add(ref.toLowerCase());
-    } else {
-      unmatchedLocal.push(inv);
     }
+    claimedRefs.add(ref.toLowerCase());
   }
 
   const unmatchedOnChain: Hex[] = [];
-  for (const [refLower, _row] of onChainRefSet) {
-    if (!matchedRefs.has(refLower)) {
+  for (const [refLower] of onChainRefSet) {
+    if (!claimedRefs.has(refLower)) {
       unmatchedOnChain.push(refLower as Hex);
     }
   }
 
   return {
     matched,
+    mismatched,
     unmatchedOnChain,
     unmatchedLocal,
     matchedCount: matched.length,
+    mismatchedCount: mismatched.length,
     unmatchedOnChainCount: unmatchedOnChain.length,
     unmatchedLocalCount: unmatchedLocal.length,
   };

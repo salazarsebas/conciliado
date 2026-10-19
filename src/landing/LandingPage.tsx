@@ -32,6 +32,8 @@ const CSV_ROWS = parseCsv(csvRaw);
 const INVOICE_LIST = CSV_ROWS.map((r) => ({
   invoiceId: r.invoiceId,
   invoiceRef: r.invoiceRef as `0x${string}`,
+  payee: r.payee as `0x${string}`,
+  amountMicro: BigInt(r.amount),
 }));
 
 // Confirm dialog

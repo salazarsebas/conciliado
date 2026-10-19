@@ -432,6 +432,121 @@ test('rebuildLedger paging: all logs returned when split across pages', async ()
   expect(result.payoutRows[1].invoiceRef.toLowerCase()).toBe(REF2.toLowerCase());
 });
 
+// ─── Mismatch cases ───────────────────────────────────────────────────────
+
+const AMOUNT1 = 1_000_000n; // 1.000000 USDC
+const WRONG_PAYEE: Address = '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+const WRONG_AMOUNT = 999_000n;
+
+function makeSimpleClient() {
+  const logs = [
+    invoicePaidLog(1n, 0n, PAYEE1, AMOUNT1, REF1),
+    batchPaidLog(1n, PAYER, 1n, AMOUNT1),
+  ];
+  return makeClient({ logs });
+}
+
+test('rebuildLedger mismatch: payee differs, amount equal => mismatch', async () => {
+  const client = makeSimpleClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT,
+    payer: PAYER,
+    target: { txHash: TX_HASH },
+    invoiceList: [{ invoiceId: 'INV-001', invoiceRef: REF1, payee: WRONG_PAYEE, amountMicro: AMOUNT1 }],
+  });
+  expect(result.matchedCount).toBe(0);
+  expect(result.mismatchedCount).toBe(1);
+  expect(result.unmatchedOnChainCount).toBe(0);
+  expect(result.unmatchedLocalCount).toBe(0);
+  expect(result.mismatched[0].fields).toEqual(['payee']);
+  expect(result.mismatched[0].expected.payee?.toLowerCase()).toBe(WRONG_PAYEE.toLowerCase());
+  expect(result.mismatched[0].actual.payee.toLowerCase()).toBe(PAYEE1.toLowerCase());
+});
+
+test('rebuildLedger mismatch: amount differs, payee equal => mismatch', async () => {
+  const client = makeSimpleClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT,
+    payer: PAYER,
+    target: { txHash: TX_HASH },
+    invoiceList: [{ invoiceId: 'INV-001', invoiceRef: REF1, payee: PAYEE1, amountMicro: WRONG_AMOUNT }],
+  });
+  expect(result.matchedCount).toBe(0);
+  expect(result.mismatchedCount).toBe(1);
+  expect(result.unmatchedOnChainCount).toBe(0);
+  expect(result.unmatchedLocalCount).toBe(0);
+  expect(result.mismatched[0].fields).toEqual(['amount']);
+  expect(result.mismatched[0].expected.amountMicro).toBe(WRONG_AMOUNT);
+  expect(result.mismatched[0].actual.amountMicro).toBe(AMOUNT1);
+});
+
+test('rebuildLedger mismatch: both payee and amount differ => both fields reported', async () => {
+  const client = makeSimpleClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT,
+    payer: PAYER,
+    target: { txHash: TX_HASH },
+    invoiceList: [{ invoiceId: 'INV-001', invoiceRef: REF1, payee: WRONG_PAYEE, amountMicro: WRONG_AMOUNT }],
+  });
+  expect(result.matchedCount).toBe(0);
+  expect(result.mismatchedCount).toBe(1);
+  expect(result.unmatchedOnChainCount).toBe(0);
+  expect(result.unmatchedLocalCount).toBe(0);
+  expect(result.mismatched[0].fields).toContain('payee');
+  expect(result.mismatched[0].fields).toContain('amount');
+  expect(result.mismatched[0].fields).toHaveLength(2);
+});
+
+test('rebuildLedger mismatch: payee differs only by letter case => match (not mismatch)', async () => {
+  const client = makeSimpleClient();
+  // PAYEE1 in lowercase vs. the mixed-case version emitted on-chain
+  const sameLowerPayee = PAYEE1.toLowerCase() as Address;
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT,
+    payer: PAYER,
+    target: { txHash: TX_HASH },
+    invoiceList: [{ invoiceId: 'INV-001', invoiceRef: REF1, payee: sameLowerPayee, amountMicro: AMOUNT1 }],
+  });
+  expect(result.matchedCount).toBe(1);
+  expect(result.mismatchedCount).toBe(0);
+  expect(result.unmatchedOnChainCount).toBe(0);
+  expect(result.unmatchedLocalCount).toBe(0);
+});
+
+test('rebuildLedger mismatch: matching payee and amount => match', async () => {
+  const client = makeSimpleClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT,
+    payer: PAYER,
+    target: { txHash: TX_HASH },
+    invoiceList: [{ invoiceId: 'INV-001', invoiceRef: REF1, payee: PAYEE1, amountMicro: AMOUNT1 }],
+  });
+  expect(result.matchedCount).toBe(1);
+  expect(result.mismatchedCount).toBe(0);
+  expect(result.unmatchedOnChainCount).toBe(0);
+  expect(result.unmatchedLocalCount).toBe(0);
+});
+
+test('rebuildLedger mismatch: invoice without payee or amount (ref only) => still matched', async () => {
+  const client = makeSimpleClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT,
+    payer: PAYER,
+    target: { txHash: TX_HASH },
+    invoiceList: [{ invoiceId: 'INV-001', invoiceRef: REF1 }],
+  });
+  expect(result.matchedCount).toBe(1);
+  expect(result.mismatchedCount).toBe(0);
+  expect(result.unmatchedOnChainCount).toBe(0);
+  expect(result.unmatchedLocalCount).toBe(0);
+});
+
 // ─── Warning when multiple payer txs in block ────────────────────────────
 
 test('rebuildLedger: warning when payerTxCountInBlock > 1', async () => {
