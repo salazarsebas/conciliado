@@ -10,14 +10,12 @@
  *  https://studio.arc.io
  */
 
-import './tracing'
-import './console-capture'
-
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from 'sonner'
 import App from './App'
 import './index.css'
+import { shouldLoadStudioInstrumentation } from './studio-preview.js'
 
 // Studio logo SVG
 const StudioLogo = () => (
@@ -26,7 +24,7 @@ const StudioLogo = () => (
   </svg>
 )
 
-// Studio watermark — fixed bottom-right, does not cover content at 360 px
+// Studio watermark: fixed bottom-right, does not cover content at 360 px
 const StudioWatermark = () => (
   <a
     href="https://studio.arc.io/"
@@ -61,10 +59,35 @@ const StudioWatermark = () => (
   </a>
 )
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-    <StudioWatermark />
-    <Toaster position="top-center" richColors />
-  </StrictMode>,
-)
+function renderApp() {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+      <StudioWatermark />
+      <Toaster position="top-center" richColors />
+    </StrictMode>,
+  )
+}
+
+// Load Studio instrumentation modules only when:
+//   (a) the build permits it (DEV mode or VITE_ARC_STUDIO_PREVIEW flag), AND
+//   (b) the page is running inside a parent frame.
+// Vite replaces the condition at build time and dead-code-eliminates the
+// dynamic import() branches (and the chunks they would pull in) from a
+// production build where neither flag is set.
+async function boot() {
+  const buildAllows = (import.meta.env.DEV || import.meta.env.VITE_ARC_STUDIO_PREVIEW === 'true')
+  if (shouldLoadStudioInstrumentation({ buildAllows, inFrame: window.parent !== window })) {
+    try {
+      await Promise.all([
+        import('./tracing.js'),
+        import('./console-capture.js'),
+      ])
+    } catch {
+      // Instrumentation failure must never prevent the app from rendering
+    }
+  }
+  renderApp()
+}
+
+void boot()
