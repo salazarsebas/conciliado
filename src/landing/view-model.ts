@@ -7,7 +7,7 @@
  */
 
 import type { Address, Hex } from 'viem';
-import type { LedgerResult, LocalInvoice } from '../ledger/index.js';
+import type { LedgerResult, LocalInvoice, MismatchedInvoice } from '../ledger/index.js';
 import {
   BATCH_TX,
   EXPLORER_BASE,
@@ -28,6 +28,19 @@ import { nativeToMicro } from '../ledger/money.js';
 
 export type ViewStatus = 'empty' | 'loading' | 'ready' | 'error' | 'cached';
 
+/**
+ * Per-row mismatch detail: which fields differ and what was expected vs actual.
+ * Only present when matched=false AND the ref was found on chain (i.e., the local
+ * invoice had payee/amountMicro but they did not agree with on-chain values).
+ */
+export interface RowMismatchDetail {
+  fields: Array<'payee' | 'amount'>;
+  expectedPayee?: Address;
+  actualPayee?: Address;
+  expectedAmount?: string;   // formatted 6-decimal USDC
+  actualAmount?: string;     // formatted 6-decimal USDC
+}
+
 export interface PayoutRowView {
   lineIndex: number;
   invoiceId: string | null;        // from join; null when unmatched on-chain
@@ -37,8 +50,12 @@ export interface PayoutRowView {
   amountDisplay: string;           // "0.020000"
   invoiceRef: Hex;
   invoiceRefDisplay: string;       // truncated
-  matchWord: 'Matched' | 'Not matched' | 'Checking';
+  matchWord: 'Matched' | 'Not matched' | 'Mismatch' | 'Checking';
   matched: boolean;
+  /** True when the ref was found on chain but payee or amount differed. */
+  mismatch: boolean;
+  /** Populated only when mismatch=true. */
+  mismatchDetail: RowMismatchDetail | null;
   txUrl: string;
 }
 
@@ -76,8 +93,9 @@ export interface LedgerViewModel {
   feeRow: FeeRowView | null;
   totalDisplay: string | null;       // ledgerTotalMicro, 6 decimals
   matchedCount: number;
+  mismatchedCount: number;
   invoiceCount: number;
-  matchSummary: string;              // "6 of 6 matched"
+  matchSummary: string;              // "6 of 6 matched" or "6 of 6 matched, 0 mismatched"
   tieOut: TieOutView | null;
   warnings: string[];
 }
@@ -113,10 +131,40 @@ export function buildViewModel(
   }
 
   const matchedRefSet = new Set(result.matched.map((m) => m.ref.toLowerCase()));
+  // Map from ref lowercase → MismatchedInvoice for quick lookup
+  const mismatchedRefMap = new Map<string, MismatchedInvoice>();
+  for (const m of result.mismatched) {
+    mismatchedRefMap.set(m.ref.toLowerCase(), m);
+  }
 
   const payoutRows: PayoutRowView[] = result.payoutRows.map((row) => {
     const matched = matchedRefSet.has(row.invoiceRef.toLowerCase());
+    const mismatchEntry = mismatchedRefMap.get(row.invoiceRef.toLowerCase());
+    const mismatch = mismatchEntry !== undefined;
     const invoiceId = refToId.get(row.invoiceRef.toLowerCase()) ?? null;
+
+    let mismatchDetail: RowMismatchDetail | null = null;
+    if (mismatch && mismatchEntry) {
+      mismatchDetail = {
+        fields: mismatchEntry.fields,
+        ...(mismatchEntry.expected.payee !== undefined ? { expectedPayee: mismatchEntry.expected.payee } : {}),
+        ...(mismatch ? { actualPayee: row.payee } : {}),
+        ...(mismatchEntry.expected.amountMicro !== undefined
+          ? { expectedAmount: formatMicro6(mismatchEntry.expected.amountMicro) }
+          : {}),
+        ...(mismatch ? { actualAmount: formatMicro6(row.amountMicro) } : {}),
+      };
+    }
+
+    let matchWord: PayoutRowView['matchWord'];
+    if (matched) {
+      matchWord = 'Matched';
+    } else if (mismatch) {
+      matchWord = 'Mismatch';
+    } else {
+      matchWord = 'Not matched';
+    }
+
     return {
       lineIndex: Number(row.lineIndex),
       invoiceId,
@@ -126,8 +174,10 @@ export function buildViewModel(
       amountDisplay: formatMicro6(row.amountMicro),
       invoiceRef: row.invoiceRef,
       invoiceRefDisplay: truncateHash(row.invoiceRef),
-      matchWord: matched ? 'Matched' : 'Not matched',
+      matchWord,
       matched,
+      mismatch,
+      mismatchDetail,
       txUrl,
     };
   });
@@ -209,6 +259,15 @@ export function buildViewModel(
     ? formatBlockNumber(result.blockNumber)
     : null;
 
+  // Build matchSummary: include mismatch count when any mismatch exists
+  const n = invoiceList.length;
+  let matchSummary: string;
+  if (result.mismatchedCount > 0) {
+    matchSummary = `${result.matchedCount} of ${n} matched, ${result.mismatchedCount} mismatch${result.mismatchedCount === 1 ? '' : 'es'}`;
+  } else {
+    matchSummary = `${result.matchedCount} of ${n} matched`;
+  }
+
   return {
     status: result.status,
     receiptStatus: result.receiptStatus,
@@ -222,8 +281,9 @@ export function buildViewModel(
     feeRow,
     totalDisplay,
     matchedCount: result.matchedCount,
+    mismatchedCount: result.mismatchedCount,
     invoiceCount: invoiceList.length,
-    matchSummary: `${result.matchedCount} of ${invoiceList.length} matched`,
+    matchSummary,
     tieOut,
     warnings: result.warnings,
   };

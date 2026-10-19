@@ -20,6 +20,7 @@ export {
   type LedgerResult,
   type LocalInvoice,
   type MatchedInvoice,
+  type MismatchedInvoice,
   type PayoutRow,
   type RebuildArgs,
 } from './rebuild.js';

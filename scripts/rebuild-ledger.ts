@@ -71,17 +71,29 @@ function parseCsv(csvPath: string): LocalInvoice[] {
   const lines = text.trim().split('\n');
   // header: invoice_id,payee,amount,invoice_ref,cost_center
   const header = lines[0]?.split(',') ?? [];
-  const idxId  = header.indexOf('invoice_id');
-  const idxRef = header.indexOf('invoice_ref');
+  const idxId     = header.indexOf('invoice_id');
+  const idxRef    = header.indexOf('invoice_ref');
+  const idxPayee  = header.indexOf('payee');
+  const idxAmount = header.indexOf('amount');
   if (idxId === -1 || idxRef === -1) {
     throw new Error(`CSV missing required columns invoice_id / invoice_ref. Header: ${lines[0]}`);
   }
   return lines.slice(1).map((line) => {
     const cols = line.split(',');
-    const invoiceId = cols[idxId]?.trim();
+    const invoiceId  = cols[idxId]?.trim();
     const invoiceRef = cols[idxRef]?.trim();
     if (!invoiceId || !invoiceRef) throw new Error(`Malformed CSV line: ${line}`);
-    return { invoiceId, invoiceRef: invoiceRef as Hex };
+    const inv: LocalInvoice = { invoiceId, invoiceRef: invoiceRef as Hex };
+    // Pass payee and amount for cross-checking when present
+    if (idxPayee !== -1) {
+      const p = cols[idxPayee]?.trim();
+      if (p) (inv as { payee?: string }).payee = p;
+    }
+    if (idxAmount !== -1) {
+      const a = cols[idxAmount]?.trim();
+      if (a) (inv as { amountMicro?: bigint }).amountMicro = BigInt(a);
+    }
+    return inv;
   });
 }
 
@@ -156,7 +168,22 @@ async function main() {
   console.log('');
 
   console.log(`── Invoice join ──────────────────────────────────────────`);
-  console.log(`  Matched ${result.matchedCount} of ${invoiceList.length}`);
+  console.log(`  Matched   ${result.matchedCount} of ${invoiceList.length}`);
+  console.log(`  Mismatch  ${result.mismatchedCount}`);
+  if (result.mismatchedCount > 0) {
+    console.log(`  MISMATCH (${result.mismatchedCount}):`);
+    for (const m of result.mismatched) {
+      const fieldStr = m.fields.join(', ');
+      console.log(`    ${m.invoiceId}  ref=${m.ref}  fields=[${fieldStr}]`);
+      if (m.fields.includes('payee')) {
+        console.log(`      payee   expected=${String(m.expected.payee)}  actual=${m.actual.payee}`);
+      }
+      if (m.fields.includes('amount')) {
+        const exp = m.expected.amountMicro !== undefined ? formatMicro(m.expected.amountMicro) : '-';
+        console.log(`      amount  expected=${exp} USDC  actual=${formatMicro(m.actual.amountMicro)} USDC`);
+      }
+    }
+  }
   if (result.unmatchedOnChainCount > 0) {
     console.log(`  UNMATCHED ON-CHAIN (${result.unmatchedOnChainCount}):`);
     for (const ref of result.unmatchedOnChain) console.log(`    ${ref}`);
@@ -176,6 +203,12 @@ async function main() {
   let ok = true;
   if (result.differenceNative18 !== 0n) {
     console.error(`\nERROR: differenceWei = ${result.differenceNative18} (expected 0)`);
+    ok = false;
+  }
+  if (result.mismatchedCount > 0) {
+    console.error(
+      `\nERROR: ${result.mismatchedCount} mismatch(es) — payee or amount does not match the CSV`,
+    );
     ok = false;
   }
   if (result.unmatchedOnChainCount > 0 || result.unmatchedLocalCount > 0) {

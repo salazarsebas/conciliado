@@ -267,11 +267,13 @@ function buildFakeClient(): LedgerClient {
   } as unknown as LedgerClient;
 }
 
-// ─── Invoice list (from CSV — invoiceRef is pre-computed, no salt) ────────────
+// ─── Invoice list (from CSV: invoiceRef pre-computed, payee and amount included) ───
 
 const INVOICE_LIST: LocalInvoice[] = LINES.map((l) => ({
   invoiceId: l.invoiceId,
   invoiceRef: l.invoiceRef,
+  payee: l.payee,
+  amountMicro: l.amount,
 }));
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -395,8 +397,9 @@ test('fixture tie-out: rebuildLedger against Arc mainnet batch 1', async () => {
   expect(result.differenceDisplay).toBe('$0.00');
   expect(result.differenceExact).toBe('0.000000');
 
-  // ── Invoice join (CSV path — invoiceRef pre-computed, no salt) ────────────
+  // ── Invoice join (CSV path: invoiceRef pre-computed, payee + amount checked) ─
   expect(result.matchedCount).toBe(6);
+  expect(result.mismatchedCount).toBe(0);
   expect(result.unmatchedOnChainCount).toBe(0);
   expect(result.unmatchedLocalCount).toBe(0);
 

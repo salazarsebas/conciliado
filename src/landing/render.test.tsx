@@ -36,6 +36,8 @@ function makePaidRow(i: number) {
     invoiceRefDisplay: `0x480f1d09\u20260948b6db`,
     matchWord: 'Matched' as const,
     matched: true,
+    mismatch: false,
+    mismatchDetail: null,
     txUrl: `${EXPLORER_BASE}/tx/${BATCH_TX}`,
   };
 }
@@ -58,6 +60,7 @@ const MOCK_VM_READY: LedgerViewModel = {
   },
   totalDisplay: '0.206014',
   matchedCount: 6,
+  mismatchedCount: 0,
   invoiceCount: 6,
   matchSummary: '6 of 6 matched',
   tieOut: {
@@ -248,6 +251,55 @@ test('no-em-dash: src/landing files and index.html contain no U+2014', () => {
 });
 
 // Panel label follows state
+
+// ─── Mismatch render tests ────────────────────────────────────────────────
+
+function makeMismatchRow(i: number) {
+  return {
+    ...makePaidRow(i),
+    matchWord: 'Mismatch' as const,
+    matched: false,
+    mismatch: true,
+    mismatchDetail: {
+      fields: ['payee' as const],
+      expectedPayee: '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' as Address,
+      actualPayee: PAYEE1,
+    },
+  };
+}
+
+test('render: LedgerTable shows "Mismatch" for a mismatched row', () => {
+  const vm: LedgerViewModel = {
+    ...MOCK_VM_READY,
+    payoutRows: [makeMismatchRow(0), ...Array.from({ length: 5 }, (_, i) => makePaidRow(i + 1))],
+    matchedCount: 5,
+    mismatchedCount: 1,
+    matchSummary: '5 of 6 matched, 1 mismatch',
+  };
+  const html = renderToStaticMarkup(React.createElement(LedgerTable, { vm }));
+  expect(html).toContain('Mismatch');
+  expect(html).toContain('bg-pending-wash');
+});
+
+test('render: LedgerTable mismatch row does not show "Matched" in its match cell', () => {
+  const vm: LedgerViewModel = {
+    ...MOCK_VM_READY,
+    payoutRows: [makeMismatchRow(0)],
+    matchedCount: 0,
+    mismatchedCount: 1,
+    matchSummary: '0 of 1 matched, 1 mismatch',
+  };
+  const html = renderToStaticMarkup(React.createElement(LedgerTable, { vm }));
+  // The word "Matched" should NOT appear as a standalone status for the mismatch row.
+  // "Mismatch" should appear.
+  expect(html).toContain('Mismatch');
+  // The col header still says "Match"; we verify the cell says "Mismatch" not "Matched"
+  // by checking the count: header "Match" and cell "Mismatch" (contains "Match" once each),
+  // but the exact string "Matched" (past tense) should NOT appear.
+  expect(html).not.toContain('Matched');
+});
+
+// ─── Panel label follows state ────────────────────────────────────────────
 
 test('render: panel label reads "(deleted)" in empty state area', () => {
   // The label is driven by state; in non-ready/non-cached states it reads "(deleted)"
