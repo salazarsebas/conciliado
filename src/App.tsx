@@ -1,7 +1,5 @@
+import { LandingPage } from './landing/LandingPage.js';
+
 export default function App() {
-  return (
-    <div className="min-h-dvh">
-      {/* Build your app here */}
-    </div>
-  )
+  return <LandingPage />;
 }
