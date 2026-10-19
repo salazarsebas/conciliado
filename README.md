@@ -5,9 +5,15 @@ reference, so nobody reconciles by hand.
 
 ## Status
 
-Nothing is built or deployed yet. This commit is the repository seed: standards, review
-agents, and the diagram generator. Product work follows the open issues on this
-repository's board, one issue per commit.
+`PayoutBatch` is deployed on Arc mainnet (chain 5042) at
+[`0xC86e2241166785344E4d6692E4D2A3D4c8466d0e`](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e)
+(deploy tx
+[`0xc7d5cba3...ff800f`](https://explorer.arc.io/tx/0xc7d5cba3e626bb8c4449075cb712b58a558928d2f5ce28e0b9d1119841ff800f)).
+The first real batch, 6 invoice lines for 0.195 USDC, was paid in
+[`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056).
+Details, tie-out, and the source verification status are in
+[docs/deployments/mainnet.md](docs/deployments/mainnet.md). The ledger rebuild and the
+app are not built yet.
 
 ## What it will do
 

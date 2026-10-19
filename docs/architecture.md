@@ -33,7 +33,7 @@ Addresses on record:
 | Network | Component | Address | Status |
 | --- | --- | --- | --- |
 | Arc testnet | `PayoutBatch` (Studio iteration) | `0x209dd04647d4c103081095176e5f58c5d91e1fb6` | Deployed, see [payout-batch.md](contracts/payout-batch.md) |
-| Arc mainnet | `PayoutBatch` | not deployed yet | Tracked in issue #8 |
+| Arc mainnet | `PayoutBatch` | `0xC86e2241166785344E4d6692E4D2A3D4c8466d0e` | Deployed, see [mainnet.md](deployments/mainnet.md) |
 | Both | USDC ERC-20 interface | `0x3600000000000000000000000000000000000000` | System contract, 6 decimals |
 | Arc mainnet | `Multicall3From` | `0x522fAf9A91c41c443c66765030741e4AaCe147D0` | System contract, batches calls while preserving the sender ([contract addresses](https://docs.arc.io/arc/references/contract-addresses.md)) |
 

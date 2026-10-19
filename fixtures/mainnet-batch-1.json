@@ -1,0 +1,91 @@
+{
+  "description": "Conciliado mainnet batch 1: one PayoutBatch.payBatch of 6 lines on Arc mainnet, sent through Multicall3From (approve then payBatch, sender preserved).",
+  "chainId": 5042,
+  "contract": "0xC86e2241166785344E4d6692E4D2A3D4c8466d0e",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "batchId": 1,
+  "batchTx": "0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056",
+  "blockNumber": 26689516,
+  "blockTimestampUtc": "2026-10-19T00:41:00Z",
+  "payer": "0x429Fd794Ed2166c0F6fFef39fA6A1F580Ba64364",
+  "txTo": "0x522fAf9A91c41c443c66765030741e4AaCe147D0",
+  "decimals": {
+    "usdcErc20": 6,
+    "native": 18
+  },
+  "lines": [
+    {
+      "lineIndex": 0,
+      "invoiceId": "INV-0001",
+      "payee": "0xFe2b873C97CE177A0AF5e3BEad37EFE336e6a571",
+      "amount": "20000",
+      "invoiceRef": "0x480f1d091980e77bfd5476fefacccaf148fd2eda7228cb643226eb5e0948b6db"
+    },
+    {
+      "lineIndex": 1,
+      "invoiceId": "INV-0002",
+      "payee": "0x5eb1f8E7b85938E2eB71a1a0A0c71c9155B79F07",
+      "amount": "25000",
+      "invoiceRef": "0x877fa72df36ad606e17c95f4810e171ccf89f2388e4904aaa43ca7885c49a9bd"
+    },
+    {
+      "lineIndex": 2,
+      "invoiceId": "INV-0003",
+      "payee": "0x46DC111108143D53A119927f0CD60f463F2671d0",
+      "amount": "30000",
+      "invoiceRef": "0x81c573e0a1e3c4ee65db10d9472f4127c084f794c539350958bc9e8470724762"
+    },
+    {
+      "lineIndex": 3,
+      "invoiceId": "INV-0004",
+      "payee": "0xF80060bDA0F08b9D9000c138e44eAdeD4BAEFA97",
+      "amount": "35000",
+      "invoiceRef": "0x09877960442bd25d36f9b8490678413a808abeb7a3b38f87cbff55acac2a4f71"
+    },
+    {
+      "lineIndex": 4,
+      "invoiceId": "INV-0005",
+      "payee": "0x361fceB4632D9215a4B0b7f7b9288308312f7A4A",
+      "amount": "40000",
+      "invoiceRef": "0x1b30e5e92b78f8c6a336beacda678c84b606c8bdc756a9f217fdb68bd0f7d053"
+    },
+    {
+      "lineIndex": 5,
+      "invoiceId": "INV-0006",
+      "payee": "0xdA131CBb1cbB8AF35FFCd9B8D3bC065CF630932C",
+      "amount": "45000",
+      "invoiceRef": "0xc0d92519e0006e0ed36a0f1270f24d2ac732a46f1edc7fd5a40365efe0bf03bb"
+    }
+  ],
+  "payoutTotal": "195000",
+  "gasUsed": "524474",
+  "effectiveGasPrice": "21000000000",
+  "feeWei": "11013954000000000",
+  "fee6": "11014",
+  "feeRoundingRule": "nearest 6-decimal unit, half up, applied to feeWei (18 decimals); exact fee is 11013.954 units",
+  "payerBalance": {
+    "blockBefore": 26689515,
+    "blockAfter": 26689516,
+    "nativeWeiBefore": "5959204477000000000",
+    "nativeWeiAfter": "5753190523000000000",
+    "erc20Before": "5959204",
+    "erc20After": "5753190"
+  },
+  "tieOut": {
+    "deltaWei": "206013954000000000",
+    "payoutsPlusFeeWei": "206013954000000000",
+    "differenceWei": "0",
+    "erc20Delta": "206014",
+    "payoutsPlusFee6": "206014",
+    "difference6": "0",
+    "note": "The ERC-20 balanceOf view truncates the 18-decimal balance to 6 decimals, so its delta can differ from the exact delta by one unit. Here both agree."
+  },
+  "logs": {
+    "usdcApproval": 1,
+    "usdcTransfer": 6,
+    "nativeTransfer18Decimals": 6,
+    "invoicePaid": 6,
+    "batchPaid": 1,
+    "note": "Each payout also emits an 18-decimal Transfer from 0xfffffffffffffffffffffffffffffffffffffffe next to the ERC-20 Transfer from the USDC address. Count one of the two, not both."
+  }
+}
