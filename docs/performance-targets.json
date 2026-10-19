@@ -1,0 +1,103 @@
+{
+  "version": "1.0.0",
+  "description": "Response-time targets the app measures. Each id is also the performance.measure name the app records, prefixed with conciliado:. docs/performance.md explains each one. Status stays 'target' until the app records a real run.",
+  "percentile": "p95",
+  "minimumRuns": 20,
+  "targets": [
+    {
+      "id": "landing-fcp",
+      "label": "Landing first contentful paint",
+      "p95": 1200,
+      "unit": "ms",
+      "profile": "mobile, throttled",
+      "status": "target"
+    },
+    {
+      "id": "landing-lcp",
+      "label": "Landing largest contentful paint",
+      "p95": 2000,
+      "unit": "ms",
+      "profile": "mobile, throttled",
+      "status": "target"
+    },
+    {
+      "id": "landing-js",
+      "label": "Landing JavaScript, gzipped",
+      "p95": 200,
+      "unit": "kB",
+      "profile": "production build output",
+      "status": "target"
+    },
+    {
+      "id": "csv-validate-200",
+      "label": "CSV parse and local validation, 200 lines",
+      "p95": 250,
+      "unit": "ms",
+      "profile": "desktop and mobile",
+      "status": "target"
+    },
+    {
+      "id": "rebuild-6",
+      "label": "Rebuild from chain, 6 line batch, click to data resolved",
+      "p95": 2500,
+      "unit": "ms",
+      "profile": "desktop, warm RPC connection",
+      "status": "target",
+      "baseline": {
+        "unit": "ms",
+        "min": 212,
+        "max": 1512,
+        "runs": 5,
+        "note": "whole CLI process including startup, bun run ledger:rebuild, read-only, 2026-10-19"
+      }
+    },
+    {
+      "id": "rebuild-200",
+      "label": "Rebuild from chain, 200 line batch, click to data resolved",
+      "p95": 5000,
+      "unit": "ms",
+      "profile": "desktop, warm RPC connection",
+      "status": "target"
+    },
+    {
+      "id": "rebuild-visible",
+      "label": "Rebuild click to the matched count painted",
+      "p95": 3000,
+      "unit": "ms",
+      "profile": "desktop, warm RPC connection",
+      "status": "target"
+    },
+    {
+      "id": "pending-shown",
+      "label": "Transaction hash returned to pending pill painted",
+      "p95": 100,
+      "unit": "ms",
+      "profile": "desktop and mobile",
+      "status": "target"
+    },
+    {
+      "id": "time-to-final",
+      "label": "Transaction hash returned to receipt received",
+      "p95": 5000,
+      "unit": "ms",
+      "profile": "Arc mainnet",
+      "status": "target"
+    },
+    {
+      "id": "inp",
+      "label": "Interaction to next paint",
+      "p95": 200,
+      "unit": "ms",
+      "profile": "mobile, throttled",
+      "status": "target"
+    },
+    {
+      "id": "cls",
+      "label": "Cumulative layout shift",
+      "p95": 0.05,
+      "unit": "score",
+      "profile": "mobile, throttled",
+      "status": "target"
+    }
+  ]
+}
