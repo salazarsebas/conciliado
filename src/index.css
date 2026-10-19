@@ -1,3 +1,4 @@
+@import '../docs/brand/tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +9,9 @@
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
   min-height: 100dvh;
+  @apply bg-paper text-ink font-sans;
 }
+
+/* Tabular nums on every figure */
+.tabular { font-variant-numeric: tabular-nums slashed-zero; }

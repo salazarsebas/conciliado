@@ -15,15 +15,9 @@ import './console-capture'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { WagmiProvider } from 'wagmi'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ConnectKitProvider } from 'connectkit'
 import { Toaster } from 'sonner'
-import { config } from './config'
 import App from './App'
 import './index.css'
-
-const queryClient = new QueryClient()
 
 // Studio logo SVG
 const StudioLogo = () => (
@@ -32,7 +26,7 @@ const StudioLogo = () => (
   </svg>
 )
 
-// Studio watermark component - links back to Studio
+// Studio watermark — fixed bottom-right, does not cover content at 360 px
 const StudioWatermark = () => (
   <a
     href="https://studio.arc.io/"
@@ -59,6 +53,7 @@ const StudioWatermark = () => (
       border: '1px solid rgba(255, 255, 255, 0.4)',
       zIndex: 9999,
       boxShadow: '0 4px 20px rgba(27, 49, 88, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+      maxWidth: 'calc(100vw - 32px)',
     }}
   >
     <StudioLogo />
@@ -68,15 +63,8 @@ const StudioWatermark = () => (
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider>
-          <App />
-          <StudioWatermark />
-          <Toaster position="top-center" />
-        </ConnectKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <App />
+    <StudioWatermark />
+    <Toaster position="top-center" richColors />
   </StrictMode>,
 )
-

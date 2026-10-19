@@ -5,15 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build": "vite build",
     "deploy:self": "bun run ./scripts/self-deploy.ts",
-    "compass:deploy": "bun run ./scripts/compass-deploy.ts",
     "fetch:abi": "bun run ./scripts/fetch-abi.ts",
     "lint": "oxlint --type-aware src scripts --fix; s=$?; oxlint --fix .; exit $((s>0?s:$?))",
     "typecheck": "tsc --noEmit",
     "check": "bash scripts/check.sh",
     "contracts:build": "forge build",
     "contracts:test": "forge test",
-    "test": "bun test src/ledger",
+    "test": "bun test src",
     "ledger:rebuild": "bun run ./scripts/rebuild-ledger.ts",
     "brand:tokens": "bun run ./scripts/brand-tokens.ts",
     "brand:check": "bun run ./scripts/brand-tokens.ts --check"

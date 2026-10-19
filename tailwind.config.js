@@ -1,3 +1,5 @@
+import brandTheme from './docs/brand/tailwind.tokens.js';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -5,10 +7,7 @@ export default {
     './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
-    extend: {
-      // Add your custom colors, fonts, etc. here
-    },
+    extend: brandTheme,
   },
   plugins: [],
-}
-
+};
