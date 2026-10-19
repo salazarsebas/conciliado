@@ -26,16 +26,14 @@ in the four hex digits of the `USDC` immutable that the constructor fills in.
 
 ## Source verification
 
-Status: **not verified on explorer.arc.io yet.**
+Status: **fully verified on explorer.arc.io** (2026-10-19), [source on the explorer](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract).
+The explorer reports `is_fully_verified: true`, name `PayoutBatch`, license MIT.
 
-`arc-forge verify-contract` with the Blockscout verifier against
-`https://explorer.arc.io/api/` was run and failed: the explorer answers command line
-clients with a Cloudflare "Just a moment" challenge page (HTTP 403) instead of the
-Blockscout API, so the CLI cannot read or submit anything. No way around the challenge was
-attempted.
-
-To finish it by hand, use the explorer's contract verification page for this address
-with these inputs, which match the deployed build:
+`arc-forge verify-contract` could not do it: the explorer answers command line clients
+with a Cloudflare challenge page (HTTP 403). The same Blockscout endpoint
+(`/api/v2/smart-contracts/<address>/verification/via/standard-input`) was then called from
+a normal browser session on explorer.arc.io with these inputs, which match the deployed
+build:
 
 - Method: Solidity (standard JSON input).
 - Compiler: `v0.8.28+commit.7893614a`, EVM version `paris`, optimizer enabled, 200 runs.

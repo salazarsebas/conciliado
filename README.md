@@ -86,12 +86,6 @@ Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/
   ([#33](https://github.com/salazarsebas/conciliado/issues/33)).
 - No contract test covers `MAX_LINES` or a 200-line batch, so the 200-line gas cost has
   never been measured ([#31](https://github.com/salazarsebas/conciliado/issues/31)).
-- Source verification on explorer.arc.io is not done. The explorer answers command line
-  clients with a Cloudflare challenge, so `arc-forge verify-contract` failed. The
-  standard JSON input and the manual steps are in
-  [docs/deployments/mainnet.md](docs/deployments/mainnet.md#source-verification). The
-  deployed bytecode was compared with the local build instead: same length, differing only
-  in the constructor-filled `USDC` immutable.
 
 ## Architecture
 

@@ -143,10 +143,10 @@ Trust boundaries, from the payer outward:
   and decisions are in [payout-batch.md](contracts/payout-batch.md). Studio says its review
   is not a substitute for a paid audit before real funds.
 - The deployed runtime code was compared with the local build (same length, differing only
-  in the constructor-filled `USDC` immutable). The source is **not verified on the explorer
-  yet** because the explorer blocks command line clients; the manual steps are in
-  [mainnet.md](deployments/mainnet.md).
-- Status: **partial.** No paid audit, no explorer verification.
+  in the constructor-filled `USDC` immutable). The source is
+  [fully verified on explorer.arc.io](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract) with the same compiler settings
+  ([mainnet.md](deployments/mainnet.md#source-verification)).
+- Status: **partial.** No paid audit.
 - Residual: the contract is immutable and unaudited by a third party. The fix for a bug is
   a new deployment, a new allow-list, and a fresh set of used refs. Keep balances and
   allowances small until that changes.
@@ -464,8 +464,9 @@ activity to this payer.
 ## 5. Residual risk, in plain words
 
 1. The payer key is a single point of failure for the payer's USDC. Keep the balance small.
-2. The contract is immutable, has had only an automated Studio review, and its source is
-   not verified on the explorer. Treat it as unaudited.
+2. The contract is immutable, has had only an automated Studio review. Its source is
+   verified on the explorer, which proves what is deployed, not that it is safe. Treat it
+   as unaudited.
 3. Duplicate protection depends on one stable salt per invoice, and the contract does not
    tie a ref to the payee or amount. A careless CSV can pay the same invoice twice or pay
    the wrong amount, and the tie-out would still show 0. The rebuild now flags a wrong
@@ -486,7 +487,7 @@ activity to this payer.
 | Choose one salt per invoice or per batch, and store it | App (#12 to #15) |
 | Remove or gate `tracing.ts` and `console-capture.ts` in the production build | Gated ([#33](https://github.com/salazarsebas/conciliado/issues/33)); a bundle test and a browser check on the deployed site are open |
 | Fixed mainnet chain id and contract address, CSP, frame-ancestors none | App deploy |
-| Explorer source verification | Manual step in [mainnet.md](deployments/mainnet.md) |
+| Explorer source verification | Done, [fully verified](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract) |
 | Paid third-party audit | Not scheduled |
 
 ## 7. Facts checked for this document (2026-10-19)
