@@ -229,21 +229,30 @@ Trust boundaries, from the payer outward:
 - Residual: the ref is `keccak256(invoiceId ++ salt)`. If the same invoice is entered again
   with a different salt, the ref is different and the contract pays it. The guard is only as
   strong as the payer's discipline in keeping one stable salt per invoice. The rebuild
-  cannot detect it either, because it only joins refs.
+  cannot detect it either, because a new salt gives a new ref that has no local twin to
+  compare with. Keep one stable salt per invoice and back it up; the payee and amount
+  check in [D2](#d2-the-ref-is-not-bound-to-the-payee-or-the-amount) does not cover this.
 
 #### D2: the ref is not bound to the payee or the amount
 
 - Threat: a tampered CSV keeps the ref and changes the payee or amount.
 - Control: the contract checks that the payee is allow-listed, that the ref is unused, and
   that the lines sum to `expectedTotal`. It does not tie a ref to a payee or an amount.
-  The rebuild matches local invoices to chain lines by ref only: the local invoice record
-  has no payee or amount field to compare (`LocalInvoice` is `invoiceId` plus `salt` or
-  `invoiceRef`).
-- Status: **gap.** The pre-send review and simulation in the app are the only check, and
-  they are not built.
-- Residual: after a payment, the tie-out proves that the money matches the ledger, not that
-  each line matches the payer's intent. Adding payee and amount to the join is a follow-up
-  for the app issues.
+  The contract still does not tie a ref to a payee or an amount.
+- Control in the rebuild ([#32](https://github.com/salazarsebas/conciliado/issues/32)):
+  `LocalInvoice` takes an optional `payee` and `amountMicro`. When they are given, the join
+  compares the payee (case-insensitive) and the raw amount with the on-chain line. A ref
+  that is on chain with a different payee or amount is returned in `mismatched`, with the
+  differing fields, and is not counted as matched. The landing shows it as a `Mismatch` row
+  and the CLI exits 1. The unit tests cover payee only, amount only, both, and the cases
+  that must still match (`src/ledger/rebuild.test.ts`). The first mainnet batch still joins
+  6 of 6 with 0 mismatches (`bun run ledger:rebuild`, run read-only on 2026-10-19).
+- Status: **partial.** The check runs after the payment, in the rebuild. Nothing stops a
+  tampered CSV before the payment, because the pre-send review and simulation in the app are
+  not built. An invoice given without `payee` and `amountMicro` is still joined by ref only.
+- Residual: the contract cannot stop a wrong payee or amount. The rebuild now shows it, after
+  the fact. The landing shows the word and the icon for a mismatch, and the expected and
+  actual values are in the data and the CLI output, not yet in a visible line on the row.
 
 #### D3: a used ref cannot be reused, and refs are not global
 
@@ -305,10 +314,18 @@ activity to this payer.
   `window.parent`, using the origin of the embedding page when there is one. When the page
   is the top-level window, that target is the page itself. If another site frames the
   deployed app, it would receive them. I read this code and did not run it in a browser.
-- Status: **gap** until the app removes those two imports from the production build or
-  gates them on the Studio preview.
-- Residual: until then, do not log CSV rows or salts, and do not deploy the scaffold
-  instrumentation to the public site.
+- Control ([#33](https://github.com/salazarsebas/conciliado/issues/33)): `src/main.tsx` no
+  longer imports the two files. It loads them with a dynamic `import()` only when the page
+  runs in a frame (`window.parent !== window`) and the build allows it
+  (`import.meta.env.DEV` or `VITE_ARC_STUDIO_PREVIEW=true`). Vite folds that condition at
+  build time, so a build without the flag drops both modules. Checked on 2026-10-19: after
+  `bun run build`, `grep -r "studio-trace\|studio-console-log" dist` finds nothing, and
+  `postMessage` appears once, in React's scheduler (`MessageChannel`), where it appeared
+  three times before. The decision function has unit tests (`src/studio-preview.test.ts`).
+- Status: **in place in the build, not yet confirmed in a browser** and not yet guarded by a
+  test that builds the bundle. The issue asks for a browser check on the deployed site.
+- Residual: a deploy that sets `VITE_ARC_STUDIO_PREVIEW=true` brings the instrumentation
+  back. Never set it on the public host. Do not log CSV rows or salts in the meantime.
 
 ### The read-only rebuild
 
@@ -449,9 +466,10 @@ activity to this payer.
 1. The payer key is a single point of failure for the payer's USDC. Keep the balance small.
 2. The contract is immutable, has had only an automated Studio review, and its source is
    not verified on the explorer. Treat it as unaudited.
-3. Duplicate protection depends on one stable salt per invoice, and the ref is not tied to
-   the payee or amount. A careless CSV can pay the same invoice twice or pay the wrong
-   amount, and the tie-out would still show 0.
+3. Duplicate protection depends on one stable salt per invoice, and the contract does not
+   tie a ref to the payee or amount. A careless CSV can pay the same invoice twice or pay
+   the wrong amount, and the tie-out would still show 0. The rebuild now flags a wrong
+   payee or amount as a mismatch, after the payment.
 4. The privacy is thin by design. Payees and amounts are public, and a leaked salt exposes
    the invoice IDs that used it.
 5. One blocklisted payee stops a whole batch.
@@ -464,9 +482,9 @@ activity to this payer.
 | --- | --- |
 | `threat-modeler` review and sign-off | Pending, before the public flip |
 | Test for `MAX_LINES` and a 200-line simulation | Contract or app follow-up |
-| Join local invoices to chain lines by payee and amount, not ref alone | App follow-up |
+| Join local invoices to chain lines by payee and amount, not ref alone | Done in the rebuild ([#32](https://github.com/salazarsebas/conciliado/issues/32)); the pre-send check is still app work |
 | Choose one salt per invoice or per batch, and store it | App (#12 to #15) |
-| Remove or gate `tracing.ts` and `console-capture.ts` in the production build | App (#12 to #15) |
+| Remove or gate `tracing.ts` and `console-capture.ts` in the production build | Gated ([#33](https://github.com/salazarsebas/conciliado/issues/33)); a bundle test and a browser check on the deployed site are open |
 | Fixed mainnet chain id and contract address, CSP, frame-ancestors none | App deploy |
 | Explorer source verification | Manual step in [mainnet.md](deployments/mainnet.md) |
 | Paid third-party audit | Not scheduled |

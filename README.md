@@ -78,9 +78,14 @@ Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/
 
 ### Known issues
 
-- `src/tracing.ts` and `src/console-capture.ts` (Arc Studio scaffold) are still imported by
-  `src/main.tsx` and ship in the build. They post RPC parameters and console output to the
-  parent frame ([#33](https://github.com/salazarsebas/conciliado/issues/33)).
+- `src/tracing.ts` and `src/console-capture.ts` (Arc Studio scaffold) post RPC parameters
+  and console output to the parent frame. `src/main.tsx` now loads them only inside a frame
+  in dev or with `VITE_ARC_STUDIO_PREVIEW=true`, and a normal `bun run build` leaves them
+  out (checked by searching `dist/`). There is no test that builds the bundle yet, and the
+  deployed site has not been checked in a browser
+  ([#33](https://github.com/salazarsebas/conciliado/issues/33)).
+- No contract test covers `MAX_LINES` or a 200-line batch, so the 200-line gas cost has
+  never been measured ([#31](https://github.com/salazarsebas/conciliado/issues/31)).
 - Source verification on explorer.arc.io is not done. The explorer answers command line
   clients with a Cloudflare challenge, so `arc-forge verify-contract` failed. The
   standard JSON input and the manual steps are in
@@ -207,7 +212,7 @@ Expected: `22 tests passed, 0 failed, 0 skipped`. Add `--force` to recompile fro
 bun run test
 ```
 
-Expected: `95 pass`, `0 fail` (ledger and landing). They run offline against recorded chain
+Expected: `110 pass`, `0 fail` (ledger and landing). They run offline against recorded chain
 data in `fixtures/`.
 
 ### 4. Rebuild the first mainnet batch, read-only
@@ -218,10 +223,11 @@ bun run ledger:rebuild
 
 This reads Arc mainnet through `https://rpc.mainnet.arc.io` (set `RPC_URL` to use another
 endpoint), signs nothing, and exits 1 if the difference is not 0 or a reference is
-unmatched. The lines that matter in the output:
+unmatched or mismatched. The lines that matter in the output:
 
 ```text
-Matched 6 of 6
+Matched   6 of 6
+Mismatch  0
 differenceWei        : 0 wei
 differenceDisplay    : $0.00
 ```

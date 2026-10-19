@@ -26,8 +26,13 @@ returns the ledger rows and the tie-out for one batch, built from chain data alo
   other transactions in the batch block.
 - **Join.** Local invoices are matched to on-chain refs by `invoiceRef`. An invoice is
   either `{ invoiceId, salt }` (the ref is `keccak256(invoiceId ++ salt)`) or
-  `{ invoiceId, invoiceRef }` (the CSV case). Unmatched refs on either side are returned,
-  never dropped.
+  `{ invoiceId, invoiceRef }` (the CSV case), and may carry `payee` and `amountMicro` (the
+  raw 6-decimal amount). When those are given, they are compared with the on-chain line
+  (payee case-insensitive, amount exact). A ref that is on chain with a different payee or
+  amount goes to `mismatched` (with the differing `fields`), not to `matched`, and is not in
+  `unmatchedOnChain` either. Unmatched refs on either side are returned, never dropped.
+  Duplicate protection rests on one stable salt per invoice: a new salt makes a new ref, so
+  the join cannot see it. Keep and reuse the salt.
 - **Status.** `pending` (no receipt yet) or `final`. Arc finality is deterministic, so there
   is no confirmation counter. A reverted receipt is `final`, books only the fee row, and sets
   `receiptStatus: 'reverted'`.
@@ -41,7 +46,7 @@ bun run ledger:rebuild          # RPC_URL overrides https://rpc.mainnet.arc.io
 
 It reads the contract, payer, and batch transaction from `fixtures/mainnet-batch-1.json` and
 the invoices from `fixtures/mainnet-batch-1.csv`, signs nothing, and exits 1 if the
-difference is not 0 or a ref is unmatched. Only the target addresses come from the fixture;
+difference is not 0, a ref is unmatched, or a payee or amount is mismatched. Only the target addresses come from the fixture;
 every number printed comes from the chain.
 
 Result for the first mainnet batch (block 26689516):
@@ -54,12 +59,12 @@ Result for the first mainnet batch (block 26689516):
 | Payer native balance delta, block 26689515 to 26689516 | 206013954000000000 wei |
 | Difference | 0 wei (0.000000 at 6 decimals) |
 | ERC-20 `balanceOf` delta | 206014 units |
-| Invoices matched by `invoiceRef` | 6 of 6 |
+| Invoices matched by `invoiceRef`, payee, and amount | 6 of 6, 0 mismatched |
 
 ## Tests
 
 ```bash
-bun run test                    # money, ref, paging, pending, reverted, join, fixture, and the landing (95 in all)
+bun run test                    # money, ref, paging, pending, reverted, join, fixture, and the landing (110 in all)
 arc-forge test                  # contract tests
 ```
 
