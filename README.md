@@ -50,12 +50,19 @@ commands [below](#run-it).
   not.
 - The first batch was sent from the command line, not from an app.
 
+### Designed, not built into screens yet
+
+- The brand book and design system are written ([docs/brand-book.md](docs/brand-book.md),
+  [docs/design-system.md](docs/design-system.md)) with tokens in
+  [docs/brand/](docs/brand/). Response-time targets are in [docs/performance.md](docs/performance.md);
+  none of them is measured yet.
+
 ### Not built yet
 
 - The landing page that shows a read-only rebuild of a real mainnet batch.
 - The run-a-batch flow (CSV upload, validation, simulation, one signed transaction).
 - A live URL. There is no deployed site yet, so there is nothing to open in a browser.
-- The brand book, the demo-path end-to-end test, the threat model, and the demo video.
+- The demo-path end-to-end test, the threat model, and the demo video.
 
 Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/issues).
 
@@ -221,6 +228,8 @@ Cross-check the batch on the
 | `contracts/` | `PayoutBatch.sol` and its tests, pulled from Arc Studio |
 | `src/ledger/` | Ledger rebuild and tie-out library, with tests |
 | `scripts/rebuild-ledger.ts` | The `ledger:rebuild` command |
+| `scripts/brand-tokens.ts` | The `brand:tokens` and `brand:check` commands for the design tokens |
 | `fixtures/` | The first mainnet batch as CSV and recorded chain data |
 | `diagrams/generator/` | Graphviz sources for the diagrams |
-| `docs/` | Architecture, deployment record, ledger rebuild notes, contract notes, spike, standards |
+| `docs/` | Architecture, deployment record, ledger rebuild notes, brand book, design system, response times, contract notes, spike, standards |
+| `docs/brand/` | Design tokens (JSON, CSS variables, Tailwind theme) and the logo mark |

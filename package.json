@@ -14,7 +14,9 @@
     "contracts:build": "forge build",
     "contracts:test": "forge test",
     "test": "bun test src/ledger",
-    "ledger:rebuild": "bun run ./scripts/rebuild-ledger.ts"
+    "ledger:rebuild": "bun run ./scripts/rebuild-ledger.ts",
+    "brand:tokens": "bun run ./scripts/brand-tokens.ts",
+    "brand:check": "bun run ./scripts/brand-tokens.ts --check"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.18.0",
