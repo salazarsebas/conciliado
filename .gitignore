@@ -13,3 +13,4 @@ broadcast/
 .claude/skills/
 .claude/settings.local.json
 __pycache__/
+.arc-studio/
