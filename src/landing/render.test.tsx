@@ -268,7 +268,7 @@ function makeMismatchRow(i: number) {
   };
 }
 
-test('render: LedgerTable shows "Mismatch" for a mismatched row', () => {
+test('render: LedgerTable shows "Mismatch" for a mismatched row with danger classes', () => {
   const vm: LedgerViewModel = {
     ...MOCK_VM_READY,
     payoutRows: [makeMismatchRow(0), ...Array.from({ length: 5 }, (_, i) => makePaidRow(i + 1))],
@@ -278,7 +278,12 @@ test('render: LedgerTable shows "Mismatch" for a mismatched row', () => {
   };
   const html = renderToStaticMarkup(React.createElement(LedgerTable, { vm }));
   expect(html).toContain('Mismatch');
-  expect(html).toContain('bg-pending-wash');
+  // Row background uses danger token, not pending
+  expect(html).toContain('bg-danger-wash');
+  expect(html).not.toContain('bg-pending-wash');
+  // Visible detail text: expected and actual payee addresses must appear as text
+  expect(html).toContain('0xCCCC');
+  expect(html).toContain('Payee:');
 });
 
 test('render: LedgerTable mismatch row does not show "Matched" in its match cell', () => {
@@ -290,13 +295,48 @@ test('render: LedgerTable mismatch row does not show "Matched" in its match cell
     matchSummary: '0 of 1 matched, 1 mismatch',
   };
   const html = renderToStaticMarkup(React.createElement(LedgerTable, { vm }));
-  // The word "Matched" should NOT appear as a standalone status for the mismatch row.
-  // "Mismatch" should appear.
+  // "Mismatch" must appear; "Matched" (past tense) must not
   expect(html).toContain('Mismatch');
-  // The col header still says "Match"; we verify the cell says "Mismatch" not "Matched"
-  // by checking the count: header "Match" and cell "Mismatch" (contains "Match" once each),
-  // but the exact string "Matched" (past tense) should NOT appear.
   expect(html).not.toContain('Matched');
+  // Danger row class, no pending class
+  expect(html).toContain('bg-danger-wash');
+  expect(html).not.toContain('bg-pending-wash');
+  // text-danger on the icon/label
+  expect(html).toContain('text-danger');
+});
+
+test('render: LedgerTable amount-mismatch row shows "Amount:" detail line', () => {
+  const EXPECTED_AMOUNT = '0.020001';   // what the CSV says
+  const ACTUAL_AMOUNT   = '0.020000';   // what was on chain
+
+  const amountMismatchRow = {
+    ...makePaidRow(0),
+    matchWord: 'Mismatch' as const,
+    matched: false,
+    mismatch: true,
+    mismatchDetail: {
+      fields: ['amount' as const],
+      expectedAmount: EXPECTED_AMOUNT,
+      actualAmount:   ACTUAL_AMOUNT,
+    },
+  };
+
+  const vm: LedgerViewModel = {
+    ...MOCK_VM_READY,
+    payoutRows: [amountMismatchRow],
+    matchedCount: 0,
+    mismatchedCount: 1,
+    matchSummary: '0 of 1 matched, 1 mismatch',
+  };
+
+  const html = renderToStaticMarkup(React.createElement(LedgerTable, { vm }));
+  expect(html).toContain('Mismatch');
+  expect(html).toContain('Amount:');
+  expect(html).toContain(EXPECTED_AMOUNT);
+  expect(html).toContain(ACTUAL_AMOUNT);
+  // Payee detail must NOT appear (not in fields)
+  expect(html).not.toContain('Payee:');
+  expect(html).toContain('bg-danger-wash');
 });
 
 // ─── Panel label follows state ────────────────────────────────────────────

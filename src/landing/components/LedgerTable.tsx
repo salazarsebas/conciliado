@@ -3,12 +3,32 @@
  * Desktop: real table. Mobile (below md): stacked cards.
  */
 
-import type { LedgerViewModel, PayoutRowView } from '../view-model.js';
+import type { LedgerViewModel, PayoutRowView, RowMismatchDetail } from '../view-model.js';
 import { AddressDisplay } from './AddressDisplay.js';
-import { truncateHash } from '../format.js';
+import { truncateAddress, truncateHash } from '../format.js';
 
 interface Props {
   vm: LedgerViewModel;
+}
+
+/** Visible detail lines shown beneath "Mismatch" for each differing field. */
+function MismatchDetail({ detail }: { detail: RowMismatchDetail }) {
+  return (
+    <div className="mt-1 space-y-0.5">
+      {detail.fields.includes('payee') && (
+        <div className="text-xs text-danger break-all">
+          Payee: expected {detail.expectedPayee ? truncateAddress(detail.expectedPayee) : '(unknown)'},
+          {' '}on chain {detail.actualPayee ? truncateAddress(detail.actualPayee) : '(unknown)'}
+        </div>
+      )}
+      {detail.fields.includes('amount') && (
+        <div className="text-xs text-danger break-all">
+          Amount: expected {detail.expectedAmount ?? '(unknown)'},
+          {' '}on chain {detail.actualAmount ?? '(unknown)'}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MatchIcon({ row }: { row: PayoutRowView }) {
@@ -24,12 +44,15 @@ function MatchIcon({ row }: { row: PayoutRowView }) {
   }
   if (row.mismatch) {
     return (
-      <span className="inline-flex items-center gap-1 text-pending text-sm" title={row.mismatchDetail?.fields.join(', ')}>
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M6 2L6 7" /><circle cx="6" cy="9.5" r="0.75" fill="currentColor" stroke="none" />
-        </svg>
-        Mismatch
-      </span>
+      <div title={row.mismatchDetail?.fields.join(', ')}>
+        <span className="inline-flex items-center gap-1 text-danger text-sm">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 2L6 7" /><circle cx="6" cy="9.5" r="0.75" fill="currentColor" stroke="none" />
+          </svg>
+          Mismatch
+        </span>
+        {row.mismatchDetail && <MismatchDetail detail={row.mismatchDetail} />}
+      </div>
     );
   }
   return (
@@ -65,7 +88,7 @@ export function LedgerTable({ vm }: Props) {
                 className={[
                   'border-t border-line transition-colors duration-instant',
                   row.mismatch
-                    ? 'bg-pending-wash hover:bg-pending-wash/80'
+                    ? 'bg-danger-wash hover:bg-danger-wash/80'
                     : 'hover:bg-sunken/50',
                 ].join(' ')}
               >
