@@ -81,11 +81,12 @@ Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/
 - `src/tracing.ts` and `src/console-capture.ts` (Arc Studio scaffold) post RPC parameters
   and console output to the parent frame. `src/main.tsx` now loads them only inside a frame
   in dev or with `VITE_ARC_STUDIO_PREVIEW=true`, and a normal `bun run build` leaves them
-  out (checked by searching `dist/`). There is no test that builds the bundle yet, and the
-  deployed site has not been checked in a browser
+  out (checked by searching `dist/`, and by `src/public-build.test.ts`, which builds the
+  production bundle). There is no deployed site yet, so the browser check is still open
   ([#33](https://github.com/salazarsebas/conciliado/issues/33)).
-- No contract test covers `MAX_LINES` or a 200-line batch, so the 200-line gas cost has
-  never been measured ([#31](https://github.com/salazarsebas/conciliado/issues/31)).
+- The 200-line gas figure (8,661,135 gas, below the 30,000,000 block gas limit) uses a
+  single payee. A 200-line run with distinct payees has not been measured
+  ([#31](https://github.com/salazarsebas/conciliado/issues/31) covers the cap itself).
 
 ## Architecture
 
@@ -198,7 +199,7 @@ name `arc-forge`. The version used here is v0.8.0-2; `arc-forge --version` print
 arc-forge test
 ```
 
-Expected: `22 tests passed, 0 failed, 0 skipped`. Add `--force` to recompile from scratch.
+Expected: `25 tests passed, 0 failed, 0 skipped`. Add `--force` to recompile from scratch.
 
 ### 3. Ledger tests
 

@@ -245,8 +245,10 @@ The main object. One row per payout, then the fee row, then the total.
 - **Match column**: "Matched" with the `final` check icon, "Not matched" with the `danger`
   cross icon, or "Checking" with the `ink-subtle` hollow dot. Words are always present.
   "Mismatch" is a CSV invoice whose reference is on chain but whose payee or amount differs:
-  `pending` text on a `pending-wash` row with an exclamation icon, so it differs in shape
-  from the cross. It is never counted in "N of M matched"; the summary adds ", 1 mismatch".
+  `danger` text on a `danger-wash` row with an exclamation icon, so it differs in shape
+  from the cross. A detail line under the word always shows the expected and the on-chain
+  payee or amount as text, never only in a tooltip. It is never counted in "N of M
+  matched"; the summary adds ", 1 mismatch".
 - **Unmatched on-chain lines** (a reference on chain that the local CSV does not have) are
   never dropped. They appear as extra rows on `danger-wash`, labeled "On chain, not in your
   CSV". The reverse, a CSV invoice with no payment on chain, shows "In your CSV, not paid".
