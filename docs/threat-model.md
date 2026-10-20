@@ -112,15 +112,21 @@ Trust boundaries, from the payer outward:
 - Threat: a batch so large that it runs out of gas, or a quadratic duplicate scan that
   makes a large batch fail late.
 - Control: `MAX_LINES = 200` and the `BatchTooLarge` error. The block gas limit at the head
-  of the chain on 2026-10-19 was 30,000,000. Scaling the 524,474 gas of the 6-line batch
-  linearly gives about 17.5 million for 200 lines, which is an estimate, not a measurement,
-  and it ignores the quadratic scan.
-- Status: **partial.** The cap is in the deployed contract (`MAX_LINES()` returns 200 on
-  mainnet). **No test in `contracts/test/` mentions `MAX_LINES` or `BatchTooLarge`**, and a
-  200-line batch has never been run or simulated.
+  of the chain on 2026-10-19 was 30,000,000. Three tests in `contracts/test/PayoutBatch.t.sol`
+  cover the cap ([#31](https://github.com/salazarsebas/conciliado/issues/31)):
+  `test_maxLines_is200`, `test_batch200Lines_succeeds`, and
+  `test_batch201Lines_revertsBatchTooLarge` (expects `BatchTooLarge(201, 200)` and no balance
+  moved). The 200-line test measured 8,661,135 gas with `gasleft()` around `payBatch`, about
+  29% of the block gas limit.
+- That figure is a lower bound: all 200 lines pay one allow-listed payee, so the payee's
+  balance slot is warm after the first line. The 6-line mainnet batch (524,474 gas,
+  distinct payees) scales linearly to about 17.5 million for 200 lines, which is still an
+  estimate and also under the limit. A 200-line batch with distinct payees has not been run.
+- Status: **in place.** The cap is in the deployed contract (`MAX_LINES()` returns 200 on
+  mainnet) and the boundary is tested at 200 and 201 lines.
 - Residual: a failed oversized batch reverts as a whole and costs the payer the gas. No
-  funds move. Until a 200-line simulation exists, treat 200 as an upper limit and not as a
-  tested size.
+  funds move. The app should still split a batch before it gets near 200 lines, because the
+  200-line figure above does not cover 200 distinct payees.
 
 #### C4: USDC stuck in the contract
 
@@ -138,7 +144,7 @@ Trust boundaries, from the payer outward:
 #### C5: no owner, no pause, no upgrade, and no paid audit
 
 - Threat: a bug in the deployed contract cannot be patched.
-- Control: the surface is small (about 200 lines, no admin functions), the tests pass (22 on
+- Control: the surface is small (about 200 lines, no admin functions), the tests pass (25 on
   record), and Arc Studio ran its Solidity and functional auditors and Slither. The findings
   and decisions are in [payout-batch.md](contracts/payout-batch.md). Studio says its review
   is not a substitute for a paid audit before real funds.
@@ -322,8 +328,15 @@ activity to this payer.
   `bun run build`, `grep -r "studio-trace\|studio-console-log" dist` finds nothing, and
   `postMessage` appears once, in React's scheduler (`MessageChannel`), where it appeared
   three times before. The decision function has unit tests (`src/studio-preview.test.ts`).
-- Status: **in place in the build, not yet confirmed in a browser** and not yet guarded by a
-  test that builds the bundle. The issue asks for a browser check on the deployed site.
+- `src/public-build.test.ts` builds the production bundle with Vite's JS API (forced to
+  `mode: 'production'` and `NODE_ENV=production`, because `bun test` sets `NODE_ENV=test`,
+  which Vite treats as dev) and asserts that no emitted chunk contains the Studio markers or
+  the `src/tracing` and `src/console-capture` modules. A second case builds with
+  `VITE_ARC_STUDIO_PREVIEW=true` and asserts the markers are present, so the first case can
+  fail.
+- Status: **in place in the build and guarded by a test that builds the bundle.** Not yet
+  confirmed in a browser: there is no deployed site, and the issue
+  ([#33](https://github.com/salazarsebas/conciliado/issues/33)) still asks for that check.
 - Residual: a deploy that sets `VITE_ARC_STUDIO_PREVIEW=true` brings the instrumentation
   back. Never set it on the public host. Do not log CSV rows or salts in the meantime.
 
@@ -482,10 +495,10 @@ activity to this payer.
 | Item | Where it goes |
 | --- | --- |
 | `threat-modeler` review and sign-off | Pending, before the public flip |
-| Test for `MAX_LINES` and a 200-line simulation | Contract or app follow-up |
+| Test for `MAX_LINES` and a 200-line simulation | Done ([#31](https://github.com/salazarsebas/conciliado/issues/31)): 200 lines succeed at 8,661,135 gas (one payee), 201 revert with `BatchTooLarge`; a 200-distinct-payee run is open |
 | Join local invoices to chain lines by payee and amount, not ref alone | Done in the rebuild ([#32](https://github.com/salazarsebas/conciliado/issues/32)); the pre-send check is still app work |
 | Choose one salt per invoice or per batch, and store it | App (#12 to #15) |
-| Remove or gate `tracing.ts` and `console-capture.ts` in the production build | Gated ([#33](https://github.com/salazarsebas/conciliado/issues/33)); a bundle test and a browser check on the deployed site are open |
+| Remove or gate `tracing.ts` and `console-capture.ts` in the production build | Gated and covered by a bundle test ([#33](https://github.com/salazarsebas/conciliado/issues/33)); the browser check on a deployed site is open |
 | Fixed mainnet chain id and contract address, CSP, frame-ancestors none | App deploy |
 | Explorer source verification | Done, [fully verified](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract) |
 | Paid third-party audit | Not scheduled |

@@ -122,7 +122,7 @@ then.
 | Metric | Why | When |
 | --- | --- | --- |
 | Time from send to final | Needs a new transaction | With the app, on a real batch |
-| Cost and gas of a batch other than 6 lines, including 200 | Needs more transactions, or a 200-line simulation | Before claiming a scaling figure |
+| Cost and gas of a batch other than 6 lines, including 200 | A 200-line test with one payee measured 8,661,135 gas; distinct payees and real cost need more | Before claiming a scaling figure |
 | p95 rebuild time | Ten runs is too few | After the app exists and runs repeatedly |
 | Page load and app response times | The app does not exist | `docs/performance.md`, with the app |
 | Payees' receipt of funds in their wallets | Not part of the tie-out | The six payee wallets hold exactly their amounts per [mainnet.md](deployments/mainnet.md) |
