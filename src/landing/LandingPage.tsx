@@ -3,7 +3,8 @@
  * All four states: empty, loading, ready (with delete), error, cached.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Address, Hex } from 'viem';
 import logoMark from '../../docs/brand/logo-mark.svg';
 import logoMarkInverse from '../../docs/brand/logo-mark-inverse.svg';
 import { createLandingClient } from './chain.js';
@@ -13,6 +14,7 @@ import {
   ARC_STUDIO_PROJECT,
   EXPLORER_BASE,
 } from './batch.js';
+import { NETWORKS } from '../run/networks.js';
 import { parseCsv } from './csv-parser.js';
 import { formatDuration, formatUtc, truncateHash, truncateAddress } from './format.js';
 import { useRebuild } from './use-rebuild.js';
@@ -89,12 +91,58 @@ function SkeletonRows({ count }: { count: number }) {
   );
 }
 
-// Main component
+// ─── Query param helpers ──────────────────────────────────────────────────────
+
+/** Parse ?tx and ?network from the current URL. Returns null for invalid values. */
+function parseQueryParams(): { txHash: Hex | null; networkKey: 'mainnet' | 'testnet' } {
+  const params = new URLSearchParams(window.location.search);
+  const rawTx = params.get('tx') ?? '';
+  const rawNetwork = params.get('network') ?? 'mainnet';
+  const networkKey: 'mainnet' | 'testnet' = rawNetwork === 'testnet' ? 'testnet' : 'mainnet';
+  // Validate: 0x + 64 hex chars
+  const txHash = /^0x[0-9a-fA-F]{64}$/.test(rawTx) ? (rawTx as Hex) : null;
+  return { txHash, networkKey };
+}
+
+// Parse once at module load (URL does not change while the page is open)
+const QUERY_PARAMS = parseQueryParams();
+const QUERY_TX = QUERY_PARAMS.txHash;
+const QUERY_NETWORK = QUERY_PARAMS.networkKey;
+const QUERY_NET = NETWORKS[QUERY_NETWORK];
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function LandingPage() {
-  const getClient = useCallback((): LedgerClient => createLandingClient() as unknown as LedgerClient, []);
-  const { state, history, rebuild, reset } = useRebuild(getClient, INVOICE_LIST);
+  // When a ?tx= query param is present, use it instead of the default batch.
+  // The contract address and USDC come from the network table.
+  const overrides = useMemo(() => {
+    if (!QUERY_TX) return undefined;
+    return {
+      txHash: QUERY_TX,
+      contract: QUERY_NET.payoutBatch,
+      usdc: QUERY_NET.usdc,
+      // payer is fetched from chain by use-rebuild when txHash is set and payer is not
+    };
+  }, []);
+
+  const networkKey = QUERY_TX ? QUERY_NETWORK : 'mainnet';
+
+  const getClient = useCallback(
+    (): LedgerClient => createLandingClient(networkKey) as unknown as LedgerClient,
+    [networkKey],
+  );
+
+  const invoiceList = QUERY_TX ? [] : INVOICE_LIST;
+  const { state, history, rebuild, reset } = useRebuild(getClient, invoiceList, overrides);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Auto-rebuild when ?tx= is present
+  useEffect(() => {
+    if (QUERY_TX) {
+      void rebuild();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isLoading = state.kind === 'loading';
 
@@ -134,10 +182,24 @@ export function LandingPage() {
             />
           </div>
 
-          {/* Arc mainnet badge */}
-          <span className="inline-flex w-fit items-center gap-1 rounded-full px-3 py-0.5 text-xs font-medium bg-mainnet text-mainnet-ink whitespace-nowrap">
-            Arc mainnet
-          </span>
+          {/* Network badge */}
+          {QUERY_TX && networkKey === 'testnet' ? (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full px-3 py-0.5 text-xs font-medium bg-pending-wash text-pending whitespace-nowrap">
+              Arc testnet
+            </span>
+          ) : (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full px-3 py-0.5 text-xs font-medium bg-mainnet text-mainnet-ink whitespace-nowrap">
+              Arc mainnet
+            </span>
+          )}
+
+          {/* Run a batch link */}
+          <a
+            href="/run"
+            className="text-sm font-medium text-ink hover:text-ink-muted underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
+          >
+            Run a batch
+          </a>
 
           {/* Arc Studio link */}
           <a
