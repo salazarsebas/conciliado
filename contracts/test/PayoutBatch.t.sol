@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {PayoutBatch} from "../PayoutBatch.sol";
@@ -647,5 +648,88 @@ contract PayoutBatchTest is Test {
             abi.encodeWithSelector(PayoutBatch.TotalMismatch.selector, actualAmount, wrongTotal)
         );
         batchContract.payBatch(lines, wrongTotal);
+    }
+
+    // -----------------------------------------------------------------------
+    // 23. test_maxLines_is200
+    // -----------------------------------------------------------------------
+    function test_maxLines_is200() public view {
+        assertEq(batchContract.MAX_LINES(), 200, "MAX_LINES must be 200");
+    }
+
+    // -----------------------------------------------------------------------
+    // 24. test_batch200Lines_succeeds
+    // -----------------------------------------------------------------------
+    function test_batch200Lines_succeeds() public {
+        // Re-use the existing payer/usdc/approval from setUp.
+        // Build 200 lines: one allow-listed payee (payee0), 200 distinct refs, 1 USDC each.
+        uint256 n = 200;
+        PayoutBatch.Line[] memory lines = new PayoutBatch.Line[](n);
+        uint256 total = 0;
+
+        for (uint256 i = 0; i < n; i++) {
+            lines[i] = PayoutBatch.Line({
+                payee:      payee0,
+                amount:     1e6,
+                invoiceRef: keccak256(abi.encode("200-ref", i))
+            });
+            total += 1e6;
+        }
+
+        uint256 payerBefore = usdc.balanceOf(payer);
+        uint256 payeeBefore = usdc.balanceOf(payee0);
+
+        uint256 gasBefore = gasleft();
+        vm.prank(payer);
+        batchContract.payBatch(lines, total);
+        uint256 gasUsed = gasBefore - gasleft();
+
+        // Payee received total, payer spent total
+        assertEq(usdc.balanceOf(payee0), payeeBefore + total, "payee0 should have received total");
+        assertEq(usdc.balanceOf(payer),  payerBefore - total, "payer should have spent total");
+
+        // Every ref is now marked used
+        for (uint256 i = 0; i < n; i++) {
+            assertTrue(
+                batchContract.isInvoiceRefUsed(payer, lines[i].invoiceRef),
+                "ref should be marked used"
+            );
+        }
+
+        // Gas must stay below the Arc block gas limit
+        assertLt(gasUsed, 30_000_000, "200-line batch must use less than 30 M gas");
+
+        console.log("gasUsed 200 lines", gasUsed);
+    }
+
+    // -----------------------------------------------------------------------
+    // 25. test_batch201Lines_revertsBatchTooLarge
+    // -----------------------------------------------------------------------
+    function test_batch201Lines_revertsBatchTooLarge() public {
+        uint256 n = 201;
+        PayoutBatch.Line[] memory lines = new PayoutBatch.Line[](n);
+        uint256 total = 0;
+
+        for (uint256 i = 0; i < n; i++) {
+            lines[i] = PayoutBatch.Line({
+                payee:      payee0,
+                amount:     1e6,
+                invoiceRef: keccak256(abi.encode("201-ref", i))
+            });
+            total += 1e6;
+        }
+
+        uint256 payerBefore = usdc.balanceOf(payer);
+        uint256 payeeBefore = usdc.balanceOf(payee0);
+
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(PayoutBatch.BatchTooLarge.selector, 201, 200)
+        );
+        batchContract.payBatch(lines, total);
+
+        // No balance should have moved
+        assertEq(usdc.balanceOf(payer),  payerBefore, "payer balance must be unchanged");
+        assertEq(usdc.balanceOf(payee0), payeeBefore, "payee balance must be unchanged");
     }
 }
