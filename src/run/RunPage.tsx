@@ -297,7 +297,9 @@ export function RunPage() {
   // Controller ref — stable across renders
   const controllerRef = useRef<FlowController | null>(null);
 
-  // Rebuild controller when network or clients change
+  // Rebuild controller when network or clients change.
+  // Do NOT call setFlowState here — the controller is constructed with the
+  // correct initial state, and onStateChange fires for every subsequent update.
   useEffect(() => {
     if (!publicClientRaw) return;
     const ctrl = new FlowController(network, {
@@ -306,8 +308,6 @@ export function RunPage() {
       onStateChange: setFlowState,
     });
     controllerRef.current = ctrl;
-    setFlowState(makeInitialState(network));
-    setSaltGateCleared(false);
   }, [network, publicClientRaw, walletClientRaw]);
 
   // Update payer in controller when wallet connects/disconnects
@@ -317,6 +317,7 @@ export function RunPage() {
 
   const handleNetworkChange = useCallback((key: NetworkKey) => {
     setNetworkKey(key);
+    setFlowState(makeInitialState(NETWORKS[key]));
     setSaltGateCleared(false);
   }, []);
 

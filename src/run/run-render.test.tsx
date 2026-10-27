@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import React from 'react';
 import type { Address, Hex } from 'viem';
 import { MAINNET_NETWORK, TESTNET_NETWORK } from './networks.js';
-import { makeInitialState, type FlowState } from './flow.js';
+import { makeInitialState } from './flow.js';
 
 // ─── Minimal component stubs for the purely presentational parts ────────────
 

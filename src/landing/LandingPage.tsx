@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Address, Hex } from 'viem';
+import type { Hex } from 'viem';
 import logoMark from '../../docs/brand/logo-mark.svg';
 import logoMarkInverse from '../../docs/brand/logo-mark-inverse.svg';
 import { createLandingClient } from './chain.js';

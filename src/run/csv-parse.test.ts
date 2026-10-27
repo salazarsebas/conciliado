@@ -10,6 +10,7 @@ import {
   buildPayerCsv,
   buildSaltFile,
   neutraliseFormulaInjection,
+  deriveRefs,
 } from './csv-parse.js';
 import { makeInvoiceRef } from '../ledger/ref.js';
 
@@ -279,7 +280,6 @@ test('derived invoiceRef matches makeInvoiceRef from ledger/ref', () => {
   const expected = makeInvoiceRef(invoiceId, salt);
 
   // parseRunCsv + deriveRefs should produce the same value
-  const { deriveRefs } = await import('./csv-parse.js');
   const csv = `invoiceId,payee,amount\nINV-001,0xFe2b873C97CE177A0AF5e3BEad37EFE336e6a571,1.0\n`;
   const r = parseRunCsv(csv);
   const [ref] = deriveRefs(r.rows, salt);
@@ -289,10 +289,10 @@ test('derived invoiceRef matches makeInvoiceRef from ledger/ref', () => {
 // ─── Network table matches fixtures/mainnet-batch-1.json ─────────────────────
 
 test('network table mainnet addresses match fixtures', async () => {
-  const { readFileSync } = await import('node:fs');
-  const { join } = await import('node:path');
-  const fixtureRaw = readFileSync(
-    join(new URL('../..', import.meta.url).pathname, 'fixtures/mainnet-batch-1.json'),
+  const fs = await import('node:fs');
+  const nodePath = await import('node:path');
+  const fixtureRaw = fs.readFileSync(
+    nodePath.join(new URL('../..', import.meta.url).pathname, 'fixtures/mainnet-batch-1.json'),
     'utf-8',
   );
   const fixture = JSON.parse(fixtureRaw) as {

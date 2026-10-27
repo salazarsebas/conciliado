@@ -79,10 +79,16 @@ async function boot() {
   const buildAllows = (import.meta.env.DEV || import.meta.env.VITE_ARC_STUDIO_PREVIEW === 'true')
   if (shouldLoadStudioInstrumentation({ buildAllows, inFrame: window.parent !== window })) {
     try {
-      await Promise.all([
+      const [tracing] = await Promise.all([
         import('./tracing.js'),
         import('./console-capture.js'),
       ])
+      // Register chain RPC URLs so trace events show correct chain names.
+      // Imported here (not in config.ts) so tracing never enters the production bundle.
+      const { arcMainnet } = await import('./landing/chain.js')
+      const { arcTestnet } = await import('viem/chains')
+      tracing.registerChain(arcMainnet.id, arcMainnet.rpcUrls.default.http[0])
+      tracing.registerChain(arcTestnet.id, arcTestnet.rpcUrls.default.http[0])
     } catch {
       // Instrumentation failure must never prevent the app from rendering
     }

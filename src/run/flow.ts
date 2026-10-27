@@ -26,21 +26,19 @@
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
 import { parseAbi } from 'viem';
 import type { ParseResult, ParsedRow } from './csv-parse.js';
-import { deriveRefs, generateSalt, buildPayerCsv, buildSaltFile } from './csv-parse.js';
+import { deriveRefs, generateSalt } from './csv-parse.js';
 import {
   buildAddPayeesCall,
   buildAggregate3Calls,
   buildAggregate3Calldata,
   buildFeeSettings,
-  PAYOUT_BATCH_ABI,
-  MULTICALL3_FROM_ABI,
 } from './calls.js';
 import type { BatchLine } from './calls.js';
 import { runSimulation, checkCodeDeployed } from './simulate.js';
 import type { SimulateResult } from './simulate.js';
 import type { RunNetwork } from './networks.js';
 import { rebuildLedger } from '../ledger/rebuild.js';
-import type { LedgerClient } from '../ledger/rebuild.js';
+
 import type { LocalInvoice } from '../ledger/index.js';
 import { buildViewModel, type LedgerViewModel } from '../landing/view-model.js';
 
@@ -178,15 +176,52 @@ export class FlowController {
     this.deps.onStateChange(this.state);
   }
 
-  /** Set payer address (after wallet connects). */
+  /** Set payer address (after wallet connects or disconnects). */
   setPayer(payer: Address | null) {
     this.set({ payer });
+    if (payer) {
+      // Wallet just connected: if a valid file is already parsed, run on-chain checks.
+      const { status, rows, parseResult } = this.state;
+      if (status === 'parsed' && rows.length > 0 && (parseResult?.errors.length ?? 1) === 0) {
+        void this.runOnChainChecks();
+      }
+    } else {
+      // Wallet disconnected: clear check/sim/pay results so a stale result
+      // cannot be paid against a different account.
+      const { status } = this.state;
+      const activeStatuses: FlowStatus[] = [
+        'checking', 'checked', 'allowPending', 'allowFinal',
+        'simulating', 'simOk', 'simFail', 'saltGate',
+        'paying', 'paid', 'reverted', 'rejected', 'contractError',
+      ];
+      if (activeStatuses.includes(status)) {
+        this.set({
+          status: 'parsed',
+          unallowedPayees: [],
+          usedRefs: [],
+          allowTxHash: null,
+          allowTxUrl: null,
+          allowError: null,
+          simResult: null,
+          feeEstimate: null,
+          saltGateCleared: false,
+          payTxHash: null,
+          payTxUrl: null,
+          payError: null,
+          payDurationMs: null,
+          payBlockNumber: null,
+          rebuildVm: null,
+          contractError: null,
+        });
+      }
+    }
   }
 
   /** Handle a CSV file upload. Runs pure parsing, then on-chain checks if wallet is connected. */
   async uploadFile(rawCsv: string, parseRunCsv: (raw: string) => ParseResult): Promise<void> {
-    // Reset to idle first
-    this.set(makeInitialState(this.state.network));
+    // Reset to idle, preserving the connected payer so on-chain checks can run immediately.
+    const { payer } = this.state;
+    this.set({ ...makeInitialState(this.state.network), payer });
 
     const parseResult = parseRunCsv(rawCsv);
     const rows = parseResult.rows;

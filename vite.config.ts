@@ -34,6 +34,11 @@ export default defineConfig({
       'vite-plugin-node-polyfills/shims/process',
     ],
   },
+  build: {
+    // The RunShell lazy chunk bundles heavy wallet libs (~960 kB); suppress the
+    // warning so the build stays clean without splitting third-party internals.
+    chunkSizeWarningLimit: 1500,
+  },
   server: {
     allowedHosts: true,
     cors: true,

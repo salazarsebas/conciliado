@@ -60,13 +60,13 @@ export function decodeRevertReason(err: unknown, invoiceIdByRef?: Map<Hex, strin
     // Try PayoutBatch custom errors
     try {
       const decoded = decodeErrorResult({ abi: PAYOUT_BATCH_ERROR_ABI, data: hexData });
-      return formatPayoutBatchError(decoded.errorName, decoded.args as unknown[], invoiceIdByRef);
+      return formatPayoutBatchError(decoded.errorName, decoded.args ?? [], invoiceIdByRef);
     } catch { /* not a PayoutBatch error */ }
 
     // Try ERC20 errors
     try {
       const decoded = decodeErrorResult({ abi: ERC20_ERROR_ABI, data: hexData });
-      return formatERC20Error(decoded.errorName, decoded.args as unknown[]);
+      return formatERC20Error(decoded.errorName, decoded.args ?? []);
     } catch { /* not an ERC20 error */ }
   }
 
@@ -83,7 +83,7 @@ export function decodeRevertReason(err: unknown, invoiceIdByRef?: Map<Hex, strin
 
 function formatPayoutBatchError(
   name: string,
-  args: unknown[],
+  args: readonly unknown[],
   invoiceIdByRef?: Map<Hex, string>,
 ): string {
   switch (name) {
@@ -116,7 +116,7 @@ function formatPayoutBatchError(
   }
 }
 
-function formatERC20Error(name: string, args: unknown[]): string {
+function formatERC20Error(name: string, args: readonly unknown[]): string {
   switch (name) {
     case 'ERC20InsufficientBalance': {
       const [sender, balance, needed] = args as [Address, bigint, bigint];
@@ -180,8 +180,8 @@ export async function runSimulation(opts: {
   const { client, from, to, calls, maxFeePerGas, invoiceIdByRef } = opts;
   const data = buildAggregate3Calldata(calls);
   try {
-    await client.call({ account: from, to, data });
-    const gasEstimate = await client.estimateGas({ account: from, to, data });
+    await client.call({ account: from, to, data, maxFeePerGas });
+    const gasEstimate = await client.estimateGas({ account: from, to, data, maxFeePerGas });
     return { ok: true, gasEstimate };
   } catch (err) {
     return { ok: false, reason: decodeRevertReason(err, invoiceIdByRef) };

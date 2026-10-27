@@ -5,7 +5,7 @@
  * These tests inject mock publicClient and walletClient, so no browser is needed.
  */
 
-import { expect, test, describe, mock } from 'bun:test';
+import { expect, test, describe } from 'bun:test';
 import type { Address, Hex, PublicClient, WalletClient } from 'viem';
 import { encodeErrorResult, parseAbi } from 'viem';
 import { FlowController, makeInitialState } from './flow.js';
@@ -60,43 +60,43 @@ function makePublicClient(opts: MockClientOpts = {}): PublicClient {
   } = opts;
 
   return {
-    getCode: async () => codeDeployed ? '0x6080' : '0x',
-    readContract: async ({ functionName }: { functionName: string }) => {
-      if (functionName === 'isInvoiceRefUsed') return refUsed;
-      if (functionName === 'isPayeeAllowed') return payeeAllowed;
-      return null;
+    getCode: () => Promise.resolve(codeDeployed ? '0x6080' : '0x'),
+    readContract: ({ functionName }: { functionName: string }) => {
+      if (functionName === 'isInvoiceRefUsed') return Promise.resolve(refUsed);
+      if (functionName === 'isPayeeAllowed') return Promise.resolve(payeeAllowed);
+      return Promise.resolve(null);
     },
-    call: async () => {
+    call: () => {
       if (callReverts) {
         const err = new Error('execution reverted');
         if (callRevertData) (err as unknown as { data: Hex }).data = callRevertData;
-        throw err;
+        return Promise.reject(err);
       }
-      return { data: '0x' };
+      return Promise.resolve({ data: '0x' });
     },
-    estimateGas: async () => gasEstimate,
-    getBlock: async () => ({ baseFeePerGas }),
-    waitForTransactionReceipt: async () => ({
+    estimateGas: () => Promise.resolve(gasEstimate),
+    getBlock: () => Promise.resolve({ baseFeePerGas }),
+    waitForTransactionReceipt: () => Promise.resolve({
       status: receiptStatus,
       blockNumber: receiptBlock,
       transactionHash: FAKE_TX_HASH,
       gasUsed: 100n,
       effectiveGasPrice: 20_000_000_000n,
     }),
-    getLogs: async () => [],
-    getTransactionReceipt: async () => null,
-    getBalance: async () => 0n,
-    getBlockNumber: async () => receiptBlock,
-    getTransaction: async () => ({ from: PAYER }),
+    getLogs: () => Promise.resolve([]),
+    getTransactionReceipt: () => Promise.resolve(null),
+    getBalance: () => Promise.resolve(0n),
+    getBlockNumber: () => Promise.resolve(receiptBlock),
+    getTransaction: () => Promise.resolve({ from: PAYER }),
   } as unknown as PublicClient;
 }
 
 function makeWalletClient(opts: { rejects?: boolean; sendReturns?: Hex } = {}): WalletClient {
   const { rejects = false, sendReturns = FAKE_TX_HASH } = opts;
   return {
-    sendTransaction: async () => {
-      if (rejects) throw new Error('User rejected the request.');
-      return sendReturns;
+    sendTransaction: () => {
+      if (rejects) return Promise.reject(new Error('User rejected the request.'));
+      return Promise.resolve(sendReturns);
     },
   } as unknown as WalletClient;
 }
@@ -161,12 +161,12 @@ describe('FlowController: allow payees', () => {
     // First call: not allowed; subsequent: allowed
     const publicClient = {
       ...makePublicClient({ payeeAllowed: false }),
-      readContract: async ({ functionName }: { functionName: string }) => {
+      readContract: ({ functionName }: { functionName: string }) => {
         if (functionName === 'isPayeeAllowed') {
           allowCheckCount++;
-          return allowCheckCount > 2; // first round false, second true
+          return Promise.resolve(allowCheckCount > 2); // first round false, second true
         }
-        return false;
+        return Promise.resolve(false);
       },
     } as unknown as PublicClient;
 
@@ -206,7 +206,7 @@ describe('FlowController: simulation revert', () => {
     const s = ctrl.getState();
     expect(s.status).toBe('simFail');
     expect(s.simResult?.ok).toBe(false);
-    if (!s.simResult?.ok) {
+    if (s.simResult && !s.simResult.ok) {
       expect(s.simResult.reason).toContain('allow-list');
     }
   });
