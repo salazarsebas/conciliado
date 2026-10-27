@@ -13,3 +13,8 @@ broadcast/
 .claude/skills/
 .claude/settings.local.json
 __pycache__/
+.arc-studio/
+
+# Circle entity secret and recovery files
+.circle/
+*recovery_file*

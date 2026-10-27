@@ -243,3 +243,17 @@ Cross-check the batch on the
 | `diagrams/generator/` | Graphviz sources for the diagrams |
 | `docs/` | Architecture, deployment record, ledger rebuild notes, brand book, design system, response times, contract notes, spike, standards |
 | `docs/brand/` | Design tokens (JSON, CSS variables, Tailwind theme) and the logo mark |
+
+## Run a batch
+
+Open `/run` from the "Run a batch" link in the landing header. The landing itself never asks for a wallet.
+
+1. Pick the network. Arc mainnet (5042) is the default and carries the solid "Arc mainnet" badge. Arc testnet (5042002) is badged "test funds".
+2. Connect an injected browser wallet (no WalletConnect project id needed).
+3. Upload a CSV with the header `invoiceId,payee,amount,costCenter` (`costCenter` is optional). `amount` is decimal USDC with up to 6 decimals. Every row is checked before anything is signed: address, zero or over-precise amount, duplicate `invoiceId`, more than 200 lines, ref already used on chain, payee not allow-listed.
+4. Download the payer CSV and the salt file. The salt is generated in the browser, never sent anywhere, and is the only way to reproduce the invoice references from your invoice IDs. Payee, amount, and timing are public on Arc; only the salted reference is written for each invoice.
+5. If some payees are not allow-listed, send the separate `addPayees` transaction.
+6. The whole batch is simulated with `eth_call` through `Multicall3From.aggregate3` (approve the exact total, then `payBatch`). Pay stays disabled while the simulation reverts, and the revert reason is shown.
+7. Pay sends one transaction with `maxFeePerGas` of at least 20 gwei. The status goes from pending to final, then the ledger is rebuilt from the chain with the uploaded CSV (matched count and tie-out difference).
+
+Any paid batch can be rebuilt read-only by link: `/?tx=<batch tx hash>&network=mainnet` (or `testnet`).

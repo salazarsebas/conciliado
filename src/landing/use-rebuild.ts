@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
+import type { Address, Hex } from 'viem';
 import type { LocalInvoice } from '../ledger/index.js';
 import { rebuildLedger } from '../ledger/index.js';
 import type { LedgerClient } from '../ledger/rebuild.js';
@@ -52,9 +53,21 @@ function deserializeVm(json: string): LedgerViewModel {
 
 // ─── Hook ──────────────────────────────────────────────────────────────────
 
+export interface RebuildOverrides {
+  /** Override the batch tx hash (for ?tx= query param). */
+  txHash?: Hex;
+  /** Override the payer address. */
+  payer?: Address;
+  /** Override the PayoutBatch contract address. */
+  contract?: Address;
+  /** Override the USDC address. */
+  usdc?: Address;
+}
+
 export function useRebuild(
   getClient: () => LedgerClient,
   invoiceList: LocalInvoice[],
+  overrides?: RebuildOverrides,
 ) {
   const [state, setState] = useState<PageState>({ kind: 'empty' });
   const [history, setHistory] = useState<RunRecord[]>(() => {
@@ -99,12 +112,25 @@ export function useRebuild(
     try {
       const client = getClient();
 
+      // When a txHash override is provided (tx query param), fetch the payer from chain
+      let resolvedPayer = overrides?.payer ?? PAYER_ADDRESS;
+      const resolvedTxHash = overrides?.txHash ?? BATCH_TX;
+      if (overrides?.txHash && !overrides.payer) {
+        // Fetch the transaction to get the from address (payer)
+        try {
+          const tx = await (client as unknown as {
+            getTransaction: (args: { hash: Hex }) => Promise<{ from: Address } | null>;
+          }).getTransaction({ hash: overrides.txHash });
+          if (tx?.from) resolvedPayer = tx.from;
+        } catch { /* fallback to default payer */ }
+      }
+
       const result = await rebuildLedger({
         client,
-        contract: CONTRACT_ADDRESS,
-        payer: PAYER_ADDRESS,
-        usdc: USDC_ADDRESS,
-        target: { txHash: BATCH_TX },
+        contract: overrides?.contract ?? CONTRACT_ADDRESS,
+        payer: resolvedPayer,
+        usdc: overrides?.usdc ?? USDC_ADDRESS,
+        target: { txHash: resolvedTxHash },
         invoiceList,
       });
 
@@ -182,7 +208,7 @@ export function useRebuild(
         detail: msg,
       });
     }
-  }, [getClient, invoiceList, clearElapsed]);
+  }, [getClient, invoiceList, overrides, clearElapsed]);
 
   const reset = useCallback(() => {
     clearElapsed();
