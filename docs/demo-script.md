@@ -16,4 +16,4 @@ Under two minutes, recorded on https://conciliado.acachete.xyz. Muted-safe: ever
 | 1:30 | Rebuild after payment, explorer tx | The books come from the chain. |
 | 1:45 | Verified contract on explorer.arc.io, live URL | conciliado.acachete.xyz |
 
-The steps from 0:30 to 1:30 need a real wallet signature on the live site.
+The payment was signed in a real browser wallet on the live site.
