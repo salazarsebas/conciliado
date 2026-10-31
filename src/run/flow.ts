@@ -176,6 +176,11 @@ export class FlowController {
     this.deps.onStateChange(this.state);
   }
 
+  /** Swap the wallet client without losing the parsed batch. */
+  setWalletClient(walletClient: FlowDeps['walletClient']) {
+    this.deps = { ...this.deps, walletClient };
+  }
+
   /** Set payer address (after wallet connects or disconnects). */
   setPayer(payer: Address | null) {
     this.set({ payer });
