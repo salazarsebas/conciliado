@@ -65,11 +65,13 @@ transaction.
 | `addPayees` (6 payees) | [`0x8d8652df...f89f36`](https://explorer.arc.io/tx/0x8d8652df005fe8cbfccb79afa8ed750c56be365dcd6e58fcdb87f3aaf7f89f36) | 26689404 | 168663 | 0.003541923 |
 | `approve` plus `payBatch` through `Multicall3From` | [`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056) | 26689516 | 524474 | 0.011013954 |
 
-All three succeeded. Full hashes are in the links and in
+| Batch paid from the app at https://conciliado.acachete.xyz/run (browser wallet) | [`0xd4a8008f...972665`](https://explorer.arc.io/tx/0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665) | 28850288 | 357386 | 0.008637975 |
+
+All succeeded. Full hashes of the first three are in the links and in
 [`fixtures/mainnet-batch-1.json`](../../fixtures/mainnet-batch-1.json).
 
 The simulations described below were `eth_call` reads. They sent no transaction and cost
-nothing. The payer sent exactly three transactions after the spike deploy.
+nothing. The payer sent exactly three transactions after the spike deploy, before the app batch.
 
 ### How the batch was sent
 
