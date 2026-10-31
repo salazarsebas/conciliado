@@ -37,7 +37,7 @@ import type { BatchLine } from './calls.js';
 import { runSimulation, checkCodeDeployed } from './simulate.js';
 import type { SimulateResult } from './simulate.js';
 import type { RunNetwork } from './networks.js';
-import { rebuildLedger } from '../ledger/rebuild.js';
+import { rebuildLedgerSettled } from '../ledger/rebuild-settled.js';
 
 import type { LocalInvoice } from '../ledger/index.js';
 import { buildViewModel, type LedgerViewModel } from '../landing/view-model.js';
@@ -540,7 +540,7 @@ export class FlowController {
         amountMicro: r.amountMicro,
       }));
 
-      const result = await rebuildLedger({
+      const result = await rebuildLedgerSettled({
         client: this.deps.publicClient,
         contract: this.state.network.payoutBatch,
         payer,

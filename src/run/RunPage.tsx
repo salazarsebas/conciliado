@@ -149,7 +149,7 @@ function CsvUpload({ onFile }: { onFile: (text: string) => void }) {
 // ─── Review table ─────────────────────────────────────────────────────────────
 
 function ReviewTable({ state }: { state: FlowState }) {
-  const { rows, refs, unallowedPayees, usedRefs } = state;
+  const { rows, refs, payer, unallowedPayees, usedRefs } = state;
   if (rows.length === 0) return null;
   const unallowedSet = new Set(unallowedPayees.map((a) => a.toLowerCase()));
   const usedRefSet = new Set((usedRefs ?? []).map((r) => r.toLowerCase()));
@@ -195,6 +195,8 @@ function ReviewTable({ state }: { state: FlowState }) {
                   <td className="px-3 py-2">
                     {isUsedRef ? (
                       <span className="text-xs text-danger">Already paid</span>
+                    ) : !payer ? (
+                      <span className="text-xs text-ink-subtle">Connect wallet to check</span>
                     ) : isUnallowed ? (
                       <span className="text-xs text-pending">Not allowed</span>
                     ) : (
