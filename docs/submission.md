@@ -28,4 +28,4 @@ Upload a CSV of invoices. Review each line, simulate the batch, and pay it in on
 
 - Live: https://conciliado.acachete.xyz
 - Repo: https://github.com/salazarsebas/conciliado
-- Video: `<VIDEO_URL>`
+- Video: https://youtu.be/NrJMAVy_LsI
