@@ -299,3 +299,23 @@ describe('FlowController: mainnet badge', () => {
     expect(ctrl.getState().network.name).toBe('Arc mainnet');
   });
 });
+
+describe('FlowController: wallet connects after upload', () => {
+  test('setWalletClient keeps the parsed batch and pay uses the new wallet', async () => {
+    const ctrl = new FlowController(MAINNET_NETWORK, {
+      publicClient: makePublicClient(),
+      walletClient: null,
+      onStateChange: () => {},
+    });
+    await ctrl.uploadFile(SIMPLE_CSV, parseRunCsv);
+    ctrl.setWalletClient(makeWalletClient());
+    ctrl.setPayer(PAYER);
+    expect(ctrl.getState().rows.length).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await ctrl.simulate();
+    expect(ctrl.getState().status).toBe('simOk');
+    ctrl.clearSaltGate();
+    await ctrl.sendPay();
+    expect(ctrl.getState().status).toBe('paid');
+  });
+});
