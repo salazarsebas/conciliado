@@ -73,9 +73,7 @@ commands [below](#run-it).
 
 ### Not built yet
 
-- The run-a-batch flow (CSV upload, validation, simulation, one signed transaction).
-- A live URL. There is no deployed site yet, so there is nothing to open in a browser.
-- The demo-path end-to-end test, the threat model, and the demo video.
+- The demo-path end-to-end test and the demo video.
 
 Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/issues).
 
@@ -145,8 +143,8 @@ agents: [system architecture](docs/diagrams/01-system-architecture.md),
 9. It ties out: the ledger total equals the payer's balance change, exactly, in the
    18-decimal native unit.
 
-Steps 5 to 9 are done and reproducible for the first batch. Steps 1 to 4 are the app and
-are not built yet. The rebuild rules (which logs are counted, why the duplicate 18-decimal
+Steps 5 to 9 are done and reproducible for the first batch. Steps 1 to 4 are the app, at
+`/run`. The rebuild rules (which logs are counted, why the duplicate 18-decimal
 `Transfer` logs are ignored, how the fee is rounded) are in
 [docs/ledger-rebuild.md](docs/ledger-rebuild.md).
 
