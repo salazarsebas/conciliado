@@ -8,7 +8,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { Address, Hex } from 'viem';
 import type { LocalInvoice } from '../ledger/index.js';
-import { rebuildLedger } from '../ledger/index.js';
+import { rebuildLedgerSettled } from '../ledger/rebuild-settled.js';
 import type { LedgerClient } from '../ledger/rebuild.js';
 import {
   BATCH_TX,
@@ -125,7 +125,7 @@ export function useRebuild(
         } catch { /* fallback to default payer */ }
       }
 
-      const result = await rebuildLedger({
+      const result = await rebuildLedgerSettled({
         client,
         contract: overrides?.contract ?? CONTRACT_ADDRESS,
         payer: resolvedPayer,
