@@ -9,7 +9,9 @@ to each payee and emits one event per invoice line. A ledger rebuild reads those
 the receipt, and the payer's balances back from Arc and checks that the ledger ties to the
 payer's USDC balance change. The contract and the rebuild are built, and the contract is
 live on Arc mainnet. The web app has a read-only landing page that runs the rebuild in the
-browser; the run-a-batch flow is not built yet (see [Status](#status)).
+browser and a run-a-batch flow at `/run` (see [Status](#status)).
+
+**Live app:** https://conciliado.acachete.xyz
 
 Built for Arc Microgrants: Built with Arc Studio.
 
@@ -31,6 +33,7 @@ differs from the payer's balance change by 0.
 
 | Item | Link |
 | --- | --- |
+| Web app | [conciliado.acachete.xyz](https://conciliado.acachete.xyz) |
 | `PayoutBatch` contract | [`0xC86e2241166785344E4d6692E4D2A3D4c8466d0e`](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e) |
 | Deploy transaction | [`0xc7d5cba3...ff800f`](https://explorer.arc.io/tx/0xc7d5cba3e626bb8c4449075cb712b58a558928d2f5ce28e0b9d1119841ff800f) |
 | Allow-list setup for the six payees (`addPayees`) | [`0x8d8652df...f89f36`](https://explorer.arc.io/tx/0x8d8652df005fe8cbfccb79afa8ed750c56be365dcd6e58fcdb87f3aaf7f89f36) |
