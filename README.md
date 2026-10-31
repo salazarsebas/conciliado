@@ -13,6 +13,8 @@ browser and a run-a-batch flow at `/run` (see [Status](#status)).
 
 **Live app:** https://conciliado.acachete.xyz
 
+**Demo video:** https://youtu.be/NrJMAVy_LsI
+
 Built for Arc Microgrants: Built with Arc Studio.
 
 ## The problem
@@ -74,7 +76,7 @@ commands [below](#run-it).
 
 ### Not built yet
 
-- The demo-path end-to-end test and the demo video.
+- The demo-path end-to-end test.
 
 Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/issues).
 
