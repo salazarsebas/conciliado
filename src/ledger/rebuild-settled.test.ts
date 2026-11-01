@@ -42,3 +42,22 @@ test('a retry reaches the node that has the receipt', async () => {
   expect((error as Error).message).toBe('second node answered');
   expect(calls).toBe(2);
 });
+
+test('rotates to a fallback client when the first keeps answering pending', async () => {
+  const used: string[] = [];
+  const client = (name: string) =>
+    ({
+      getTransactionReceipt: () => {
+        used.push(name);
+        return Promise.reject(new Error(name === 'stuck' ? 'TransactionReceiptNotFoundError' : 'reached fallback'));
+      },
+    }) as unknown as LedgerClient;
+
+  const result = await rebuildLedgerSettled(
+    { ...args(() => Promise.reject(new Error('unused'))), client: client('stuck') },
+    { attempts: 2, delayMs: 0, fallbackClients: [client('healthy')] },
+  );
+
+  expect(used).toEqual(['stuck', 'healthy']);
+  expect(result.status).toBe('pending');
+});

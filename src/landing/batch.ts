@@ -7,6 +7,11 @@ import type { Address, Hex } from 'viem';
 
 export const CHAIN_ID = 5042;
 export const RPC_URL = 'https://rpc.mainnet.arc.io';
+// Tried in turn when RPC_URL answers null for a receipt or fails.
+export const FALLBACK_RPC_URLS = [
+  'https://rpc.drpc.mainnet.arc.io',
+  'https://rpc.quicknode.mainnet.arc.io',
+];
 export const CONTRACT_ADDRESS = '0xC86e2241166785344E4d6692E4D2A3D4c8466d0e' as Address;
 export const BATCH_TX = '0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056' as Hex;
 export const PAYER_ADDRESS = '0x429Fd794Ed2166c0F6fFef39fA6A1F580Ba64364' as Address;

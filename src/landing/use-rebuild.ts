@@ -68,6 +68,7 @@ export function useRebuild(
   getClient: () => LedgerClient,
   invoiceList: LocalInvoice[],
   overrides?: RebuildOverrides,
+  getFallbackClients?: () => LedgerClient[],
 ) {
   const [state, setState] = useState<PageState>({ kind: 'empty' });
   const [history, setHistory] = useState<RunRecord[]>(() => {
@@ -132,7 +133,7 @@ export function useRebuild(
         usdc: overrides?.usdc ?? USDC_ADDRESS,
         target: { txHash: resolvedTxHash },
         invoiceList,
-      });
+      }, { fallbackClients: getFallbackClients?.() });
 
       performance.mark(endMark);
       performance.measure('conciliado:rebuild-6', startMark, endMark);
@@ -208,7 +209,7 @@ export function useRebuild(
         detail: msg,
       });
     }
-  }, [getClient, invoiceList, overrides, clearElapsed]);
+  }, [getClient, getFallbackClients, invoiceList, overrides, clearElapsed]);
 
   const reset = useCallback(() => {
     clearElapsed();

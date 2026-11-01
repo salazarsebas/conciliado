@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Hex } from 'viem';
 import logoMark from '../../docs/brand/logo-mark.svg';
 import logoMarkInverse from '../../docs/brand/logo-mark-inverse.svg';
-import { createLandingClient } from './chain.js';
+import { createFallbackClients, createLandingClient } from './chain.js';
 import {
   BATCH_TX,
   CONTRACT_ADDRESS,
@@ -133,7 +133,17 @@ export function LandingPage() {
   );
 
   const invoiceList = QUERY_TX ? [] : INVOICE_LIST;
-  const { state, history, rebuild, reset } = useRebuild(getClient, invoiceList, overrides);
+  const getFallbackClients = useCallback(
+    (): LedgerClient[] => createFallbackClients(networkKey) as unknown as LedgerClient[],
+    [networkKey],
+  );
+
+  const { state, history, rebuild, reset } = useRebuild(
+    getClient,
+    invoiceList,
+    overrides,
+    getFallbackClients,
+  );
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Auto-rebuild when ?tx= is present
@@ -379,9 +389,17 @@ export function LandingPage() {
 
             {/* Pending note */}
             {vm.status === 'pending' && (
-              <p className="text-sm text-pending mt-4">
-                Pending. Waiting for the receipt.
-              </p>
+              <div className="mt-4 flex items-center gap-3">
+                <p className="text-sm text-pending">
+                  Pending. Waiting for the receipt.
+                </p>
+                <button
+                  onClick={() => void rebuild()}
+                  className="min-h-touch rounded-md px-3 text-sm font-medium text-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  Retry
+                </button>
+              </div>
             )}
           </>
         )}
