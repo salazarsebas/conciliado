@@ -7,7 +7,8 @@ Issue: #7. Read path only, no UI. The code was authored in Arc Studio and pulled
 
 `rebuildLedger` takes a viem client, the `PayoutBatch` address, the payer, a target (a batch
 transaction hash, or a batch id with a block range) and the payer's local invoice list. It
-returns the ledger rows and the tie-out for one batch, built from chain data alone.
+returns the ledger rows and the tie-out for one batch. Every amount comes from the chain; the
+invoice IDs come from that local list.
 
 - **Logs.** Reads `InvoicePaid` and `BatchPaid` with `getLogs`, paged by `blockRangePerPage`
   (default 10000 blocks, inclusive, no gaps or overlap). It checks that the `BatchPaid` payer

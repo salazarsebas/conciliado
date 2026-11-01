@@ -1,7 +1,7 @@
 # Brand book
 
 Conciliado pays a batch of contractor invoices in USDC on Arc mainnet and then proves the
-books from chain data alone. This book says how that sounds, reads, and looks. It is written
+books from the chain. This book says how that sounds, reads, and looks. It is written
 for this product: a ledger that can be deleted and rebuilt, and a tie-out that lands on
 $0.00.
 

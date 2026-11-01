@@ -1,17 +1,17 @@
 # Metrics
 
-Issue: #17. Measured on 2026-10-19 (UTC) against Arc mainnet, chain 5042, through
-`https://rpc.mainnet.arc.io`, read-only. The chain head was about block 26746700.
+Issue: #17. Usage was read on 2026-11-01 (UTC) from Arc mainnet, chain 5042, read-only, with
+the chain head at block 28991629. Sections that use the first batch alone were measured on
+2026-10-19 and say so.
 
-**The in-app metrics page is not built.** It comes with the payer app (issues #12 to #15),
-and it will show these same figures computed from the chain in the browser. Until then this
-file is the page. Every number below was read from the chain or timed by running the
-command shown, and nothing is a target or an estimate unless it says so.
+The live version of the usage table is the [metrics page](https://conciliado.acachete.xyz/metrics),
+which computes it from the chain in the browser. Every number below was read from the chain
+or timed by running the command shown, and nothing is a target or an estimate unless it says
+so.
 
-There is one real batch on mainnet, and it is the demo batch described in
-[mainnet.md](deployments/mainnet.md): demo invoice IDs, six fresh payee wallets, real USDC.
-Every figure here is therefore a figure for one batch of six lines. It is not a trend and it
-is not a claim about production load.
+There are two batches on mainnet, both described in [mainnet.md](deployments/mainnet.md):
+demo invoice IDs, six fresh payee wallets, real USDC. They are not a trend and not a claim
+about production load.
 
 ## Usage, from the chain
 
@@ -20,15 +20,24 @@ Read with `bash scripts/check-mainnet.sh` (it pages `eth_getLogs` from the deplo
 
 | Metric | Value | Why it matters |
 | --- | --- | --- |
-| Batches (`BatchPaid`) | 1 | The product's unit of work |
+| Batches (`BatchPaid`) | 2 | The product's unit of work |
 | Distinct payers | 1 | Only the project's own payer has used the contract |
-| Invoice lines paid (`InvoicePaid`) | 6 | One per invoice |
-| USDC paid out | 0.195000 (195000 units, 6 decimals) | What the payees received |
+| Invoice lines paid (`InvoicePaid`) | 12 | One per invoice |
+| USDC paid out | 0.390000 (390000 units, 6 decimals) | What the payees received |
 | Allow-list entries added | 6 added, 0 removed | `PayeeAdded` events from the payer |
 | Contract balance | 0 wei | The contract holds no funds, as designed |
 | Leftover allowance, payer to contract | 0 | The batch approved exactly its total |
 
 ## Cost, from the receipt
+
+| Batch paid from the app | Value |
+| --- | --- |
+| Gas used | 357,386 |
+| Effective gas price | 24.169876028 gwei |
+| Network fee | 0.008637975314142808 USDC |
+| Fee per line | 0.001439663 USDC (6 lines) |
+
+The table below is the first batch, sent by script.
 
 | Metric | Value | How it was computed |
 | --- | --- | --- |
@@ -40,12 +49,12 @@ Read with `bash scripts/check-mainnet.sh` (it pages `eth_getLogs` from the deplo
 | One-time cost: deploy | 0.014743911 USDC | [mainnet.md](deployments/mainnet.md) |
 | One-time cost: `addPayees` for 6 payees | 0.003541923 USDC | [mainnet.md](deployments/mainnet.md) |
 
-The fee per line comes from one 6-line batch that includes a one-time `approve`. I have not
+The fee per line comes from 6-line batches that include an `approve`. I have not
 run a batch of another size, so I have no figure for how it scales, and I do not state one.
 
 ## Tie-out
 
-Measured by `bun run ledger:rebuild`, which reads the logs, the receipt, and the payer's
+First batch. Measured by `bun run ledger:rebuild`, which reads the logs, the receipt, and the payer's
 balance at blocks 26689515 and 26689516.
 
 | Metric | Value |
@@ -97,7 +106,7 @@ Three runs each through the other endpoints Arc lists:
 | dRPC | 0.317 | 0.349 | 0.409 |
 | QuickNode | 0.279 | 0.304 | 0.291 |
 
-Those ten runs date from 2026-10-19, when the offline tests (`bun run test`, 42 pass, 0 fail at that date) finished in 58 ms. Today `bun run test` has 237 tests and Foundry has 25. They
+Those ten runs date from 2026-10-19, when the offline tests (`bun run test`, 42 pass, 0 fail at that date) finished in 58 ms. Today `bun run test` has 238 tests and Foundry has 25. They
 read recorded data, so they say nothing about network time.
 
 ## Chain timing
@@ -111,20 +120,17 @@ read recorded data, so they say nothing about network time.
 | RPC `eth_blockNumber` latency | 53 to 84 ms | 5 calls from one machine, one moment |
 
 The batch was included in a single block and the receipt is final. Arc documents
-deterministic finality in under one second, with no confirmation count to wait for. **I did
-not measure the time from sending to final.** The three mainnet transactions were sent
-before this measurement existed, and sending a new one is outside this issue's rules. The
-app records send time and block time on the next real batch, and this file gets that number
-then.
+deterministic finality in under one second, with no confirmation count to wait for. **I have
+not measured the time from sending to final.**
 
 ## Not measured yet
 
 | Metric | Why | When |
 | --- | --- | --- |
-| Time from send to final | Needs a new transaction | With the app, on a real batch |
+| Time from send to final | Not recorded for the app batch | On the next batch |
 | Cost and gas of a batch other than 6 lines, including 200 | A 200-line test with one payee measured 8,661,135 gas; distinct payees and real cost need more | Before claiming a scaling figure |
-| p95 rebuild time | Ten runs is too few | After the app exists and runs repeatedly |
-| Page load and app response times | The app does not exist | `docs/performance.md`, with the app |
+| p95 rebuild time | Ten runs is too few | After more repeated runs |
+| Page load and app response times on the deployed URL | Lab runs only | `docs/performance.md` |
 | Payees' receipt of funds in their wallets | Not part of the tie-out | The six payee wallets hold exactly their amounts per [mainnet.md](deployments/mainnet.md) |
 
 ## Reproduce

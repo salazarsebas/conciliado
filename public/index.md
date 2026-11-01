@@ -6,7 +6,7 @@ Conciliado pays a batch of contractor invoices in USDC on Arc in one transaction
 
 - [Rebuild a real mainnet batch](https://conciliado.acachete.xyz/), no wallet needed
 - [Run a batch](https://conciliado.acachete.xyz/run) with a browser wallet
-- [See the metrics](https://conciliado.acachete.xyz/metrics), read live from the chain
+- [See the metrics](https://conciliado.acachete.xyz/metrics), read live from the chain ([dated snapshot](https://conciliado.acachete.xyz/metrics.md))
 
 ## How it works
 

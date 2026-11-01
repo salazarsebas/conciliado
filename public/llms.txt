@@ -1,8 +1,14 @@
 # Conciliado
 
-> Pay a batch of contractor invoices in USDC on Arc in one transaction, then rebuild the ledger from chain data alone and tie it to the wallet's balance change.
+> Pay a batch of contractor invoices in USDC on Arc in one transaction, then rebuild the ledger from the chain and tie it to the wallet's balance change.
 
 The app is a static client. There is no server, no database, and no server-held key. The payer's wallet signs every transaction. Invoice IDs stay off chain; only a salted hash goes on chain.
+
+## Status
+
+- Usage on 2026-11-01: 2 batches, 12 invoice lines, 0.39 USDC paid, 1 payer, 6 payees
+- The USDC and transactions are real. The invoices are demo invoices, the payees are wallets made for the demo, and there are no external users yet.
+- Program: Arc Microgrants: Built with Arc Studio. Video: https://youtu.be/NrJMAVy_LsI
 
 ## App
 
@@ -10,6 +16,7 @@ The app is a static client. There is no server, no database, and no server-held 
 - [Run a batch](https://conciliado.acachete.xyz/run): CSV review, simulation, and payment with a browser wallet
 - [Metrics](https://conciliado.acachete.xyz/metrics): batches and lines read live from Arc mainnet
 - [Landing as Markdown](https://conciliado.acachete.xyz/index.md)
+- [Metrics as Markdown](https://conciliado.acachete.xyz/metrics.md): dated snapshot
 
 ## On chain
 
@@ -19,8 +26,9 @@ The app is a static client. There is no server, no database, and no server-held 
 
 ## Docs
 
+- [Submission write-up by judging axis](https://conciliado.acachete.xyz/submission.md)
 - [README](https://github.com/salazarsebas/conciliado/blob/main/README.md)
-- [Agent guide](https://github.com/salazarsebas/conciliado/blob/main/AGENTS.md)
+- [Agent guide](https://conciliado.acachete.xyz/AGENTS.md)
 - [Architecture](https://github.com/salazarsebas/conciliado/blob/main/docs/architecture.md)
 - [Ledger rebuild rules](https://github.com/salazarsebas/conciliado/blob/main/docs/ledger-rebuild.md)
 - [Mainnet deployment record](https://github.com/salazarsebas/conciliado/blob/main/docs/deployments/mainnet.md)

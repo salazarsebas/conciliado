@@ -6,7 +6,8 @@ Issue: #8. Run on 2026-10-19 (UTC) against Arc mainnet, chain 5042, RPC
 `PayoutBatch` was deployed from `contracts/PayoutBatch.sol` on `main`, unchanged from the
 Studio pull, with Arc Foundry (`arc-forge` forge 1.7.1-dev), constructor argument USDC
 `0x3600000000000000000000000000000000000000`. The tests pass first (`arc-forge test`: 22
-passed, 0 failed, at deploy time; the suite has 25 today). Then one batch of 6 invoice lines was paid on mainnet.
+passed, 0 failed, at deploy time; the suite has 25 today). Then one batch of 6 invoice lines was paid on mainnet. A second batch of 6 lines was paid
+from the live app on 2026-10-31.
 
 ## Contract
 
@@ -64,7 +65,6 @@ transaction.
 | Deploy `PayoutBatch` | [`0xc7d5cba3...ff800f`](https://explorer.arc.io/tx/0xc7d5cba3e626bb8c4449075cb712b58a558928d2f5ce28e0b9d1119841ff800f) | 26689148 | 702091 | 0.014743911 |
 | `addPayees` (6 payees) | [`0x8d8652df...f89f36`](https://explorer.arc.io/tx/0x8d8652df005fe8cbfccb79afa8ed750c56be365dcd6e58fcdb87f3aaf7f89f36) | 26689404 | 168663 | 0.003541923 |
 | `approve` plus `payBatch` through `Multicall3From` | [`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056) | 26689516 | 524474 | 0.011013954 |
-
 | Batch paid from the app at https://conciliado.acachete.xyz/run (browser wallet) | [`0xd4a8008f...972665`](https://explorer.arc.io/tx/0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665) | 28850288 | 357386 | 0.008637975 |
 
 All succeeded. Full hashes of the first three are in the links and in
@@ -111,7 +111,7 @@ leftover allowance is 0.
 
 ## Tie-out
 
-Payer balance read at block 26689515 (before) and block 26689516 (the batch block).
+First batch. Payer balance read at block 26689515 (before) and block 26689516 (the batch block).
 
 | Unit | Before | After | Delta |
 | --- | --- | --- | --- |
@@ -138,6 +138,8 @@ that carry the same payouts in 18 decimals. The ledger rebuild (#7) must count o
 two transfer sets, not both.
 
 ## Total spent
+
+Through the first batch, before the app batch.
 
 | Item | USDC |
 | --- | --- |

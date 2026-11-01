@@ -1,8 +1,9 @@
 # PayoutBatch
 
 Issue: #6. The contract, its tests, and the app scaffold were written in Arc Studio
-(`arc-studio run --session conciliado`) and pulled with `arc-studio pull`. No Studio
-authored file was edited by hand.
+(`arc-studio run --session conciliado`) and pulled with `arc-studio pull`. The contract was
+not edited after the pull. App fixes made in the repo after that are listed in the
+[README](../../README.md#how-arc-studio-was-used).
 
 ## Evidence
 

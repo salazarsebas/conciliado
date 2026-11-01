@@ -43,7 +43,7 @@ with g.subgraph(name="cluster_pay") as c:
     style_cluster(c, "1. Pay", "Off-chain client", B_CLIENT)
     c.node(
         "upload",
-        hl("CSV upload", "Invoice ID, payee, amount, salt per row"),
+        hl("CSV upload", "Invoice ID, payee, amount per row"),
         fillcolor=F_CLIENT,
         color=B_CLIENT,
         shape="note",

@@ -4,6 +4,24 @@ Pay a batch of contractor invoices in USDC on Arc in one transaction, with every
 stamped with its invoice reference, so the books can be rebuilt from the chain and nobody
 reconciles by hand.
 
+## Screening facts
+
+| Fact | Value |
+| --- | --- |
+| Program | Arc Microgrants: Built with Arc Studio |
+| Live app | https://conciliado.acachete.xyz (no wallet needed to rebuild a batch) |
+| Demo video | https://youtu.be/NrJMAVy_LsI |
+| Network | Arc mainnet, chain 5042 |
+| Contract | [`0xC86e2241166785344E4d6692E4D2A3D4c8466d0e`](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract), source verified |
+| Usage on 2026-11-01 | 2 batches, 12 invoice lines, 0.39 USDC paid, 1 payer, 6 payees ([live figures](https://conciliado.acachete.xyz/metrics)) |
+| Batch paid from the app | [`0xd4a8008f...972665`](https://explorer.arc.io/tx/0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665), tie-out difference 0 wei |
+| Tests | 238 app tests, 25 Foundry tests, Playwright E2E of the demo path |
+| What is demo | The invoices are demo invoices and the payees are wallets made for the demo. The USDC and the transactions are real. |
+| External users | None yet |
+| Write-up by judging axis | [docs/submission.md](docs/submission.md) |
+
+## What it is
+
 Conciliado is two pieces. `PayoutBatch` is a small contract that moves USDC from the payer
 to each payee and emits one event per invoice line. A ledger rebuild reads those events,
 the receipt, and the payer's balances back from Arc and checks that the ledger ties to the
@@ -42,10 +60,12 @@ fee, and a ledger that differs from the payer's balance change by 0.
 | Allow-list setup for the six payees (`addPayees`) | [`0x8d8652df...f89f36`](https://explorer.arc.io/tx/0x8d8652df005fe8cbfccb79afa8ed750c56be365dcd6e58fcdb87f3aaf7f89f36) |
 | First batch, sent by script: 6 invoice lines, 0.195 USDC, one transaction | [`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056) |
 
-The ledger rebuild ties both batches out: 6 of 6 invoice references matched, ledger total
-equal to the payer's balance change, difference 0 wei. You can reproduce the first with the
-commands [below](#run-it), and the second by opening the
-[rebuild link](https://conciliado.acachete.xyz/?tx=0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665&network=mainnet).
+Both batches matched 6 of 6 invoice references against their CSV, and in both the ledger
+total equals the payer's balance change, difference 0 wei. Reproduce the first, with its
+invoice match, using the commands [below](#run-it) or the button on the landing page. The
+CSV of the second batch stays with the payer, so its
+[rebuild link](https://conciliado.acachete.xyz/?tx=0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665&network=mainnet) shows payees, amounts, fee, and the
+tie-out, with each invoice reference marked "Reference only".
 
 ### What is a fixture
 
@@ -126,7 +146,8 @@ agents: [system architecture](docs/diagrams/01-system-architecture.md),
 
 ![Payment and rebuild flow](docs/diagrams/output/02-payment-and-rebuild-flow.png)
 
-1. The payer provides a CSV with an invoice ID, payee, amount, and salt per row.
+1. The payer provides a CSV with an invoice ID, payee, and amount per row, plus an optional
+   cost center. The browser generates the salt.
 2. The client validates each row: valid address, amount above zero, no duplicate
    reference, payee on the payer's allow-list, reference unused. A bad row stops the
    batch before anything is sent.
@@ -268,4 +289,4 @@ Open `/run` from the "Run a batch" link in the landing header. The landing itsel
 6. The whole batch is simulated with `eth_call` through `Multicall3From.aggregate3` (approve the exact total, then `payBatch`). Pay stays disabled while the simulation reverts, and the revert reason is shown.
 7. Pay sends one transaction with `maxFeePerGas` of at least 20 gwei. The status goes from pending to final, then the ledger is rebuilt from the chain with the uploaded CSV (matched count and tie-out difference).
 
-Any paid batch can be rebuilt read-only by link: `/?tx=<batch tx hash>&network=mainnet` (or `testnet`).
+Any paid batch can be rebuilt read-only by link: `/?tx=<batch tx hash>&network=mainnet` (or `testnet`). Amounts, fee, and tie-out come from the chain. Invoice IDs are not on chain, so a link shows references only.
