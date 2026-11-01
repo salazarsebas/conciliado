@@ -98,3 +98,13 @@ test.describe('run page without a wallet', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Run a batch' })).toBeVisible();
   });
 });
+
+test.describe('metrics page', () => {
+  test('shows real figures quickly, before the scan for newer batches ends', async ({ page }) => {
+    await page.goto('/metrics');
+    await expect(page.getByRole('heading', { level: 1, name: 'Metrics' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Batches' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: /0x50d56ea9/ }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /0xd4a8008f/ }).first()).toBeVisible();
+  });
+});
