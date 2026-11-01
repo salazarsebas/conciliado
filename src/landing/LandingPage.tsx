@@ -398,13 +398,14 @@ export function LandingPage() {
 
             {/* Pending note */}
             {vm.status === 'pending' && (
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <p className="text-sm text-pending">
                   Pending. Waiting for the receipt.
                 </p>
                 <button
+                  type="button"
                   onClick={() => void rebuild()}
-                  className="min-h-touch rounded-md px-3 text-sm font-medium text-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="min-h-touch rounded-md px-3 text-sm font-medium text-ink hover:text-ink-muted underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   Retry
                 </button>

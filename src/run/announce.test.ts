@@ -22,7 +22,7 @@ test('announce flow: failures go to the assertive alert', () => {
   expect(announceFlow(with_({ status: 'reverted' })).alert).toBe('Transaction reverted. Batch was not paid.');
   expect(announceFlow(with_({ status: 'rejected' })).alert).toBe('Transaction rejected. No USDC moved.');
   expect(announceFlow(with_({ status: 'contractError', contractError: 'PayoutBatch is not deployed.' })).alert).toBe('PayoutBatch is not deployed.');
-  expect(announceFlow(with_({ status: 'simFail', simResult: { ok: false, reason: 'Insufficient USDC.' } as FlowState['simResult'] })).alert).toBe('Simulation failed. Insufficient USDC.');
+  expect(announceFlow(with_({ status: 'simFail', simResult: { ok: false, reason: 'Insufficient USDC.' } })).alert).toBe('Simulation failed. Insufficient USDC.');
 });
 
 test('announce flow: validation errors are counted', () => {
