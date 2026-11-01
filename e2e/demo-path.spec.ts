@@ -79,7 +79,7 @@ test.describe('run page without a wallet', () => {
     await expect(page.getByRole('button', { name: /connect wallet/i })).toBeVisible();
 
     // Network choice is offered and no pay action exists before a batch is loaded
-    await expect(page.getByRole('radiogroup', { name: 'Network' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Network' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^pay/i })).toHaveCount(0);
 
     expect(errors, 'uncaught page errors').toEqual([]);

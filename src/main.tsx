@@ -24,39 +24,21 @@ const StudioLogo = () => (
   </svg>
 )
 
-// Studio watermark: fixed bottom-right, does not cover content at 360 px
+// Studio watermark. Below 640 px it sits in the page footer so it never covers
+// content on a phone; from 640 px up it floats bottom-right. Colors come from the
+// design tokens, so it follows light and dark.
 const StudioWatermark = () => (
-  <a
-    href="https://studio.arc.io/"
-    target="_blank"
-    rel="noopener noreferrer"
-    style={{
-      position: 'fixed',
-      bottom: '16px',
-      right: '16px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      padding: '8px 14px',
-      fontSize: '12px',
-      fontWeight: 600,
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      color: '#1B3158',
-      textDecoration: 'none',
-      cursor: 'pointer',
-      background: 'rgba(172, 198, 233, 0.85)',
-      backdropFilter: 'blur(12px) saturate(180%)',
-      WebkitBackdropFilter: 'blur(12px) saturate(180%)',
-      borderRadius: '20px',
-      border: '1px solid rgba(255, 255, 255, 0.4)',
-      zIndex: 9999,
-      boxShadow: '0 4px 20px rgba(27, 49, 88, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
-      maxWidth: 'calc(100vw - 32px)',
-    }}
-  >
-    <StudioLogo />
-    Built with Arc Studio
-  </a>
+  <footer className="flex justify-center px-4 pb-6 pt-2 sm:block sm:p-0">
+    <a
+      href="https://studio.arc.io/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 min-h-touch px-4 rounded-full border border-line-strong bg-accent-wash text-accent text-sm font-semibold no-underline shadow-raised hover:text-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:fixed sm:bottom-4 sm:right-4 sm:z-[9999] sm:max-w-[calc(100vw-2rem)]"
+    >
+      <StudioLogo />
+      Built with Arc Studio
+    </a>
+  </footer>
 )
 
 function renderApp() {

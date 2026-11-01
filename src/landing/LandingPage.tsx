@@ -18,6 +18,7 @@ import { NETWORKS } from '../run/networks.js';
 import { parseCsv } from './csv-parser.js';
 import { formatDuration, formatUtc, truncateHash, truncateAddress } from './format.js';
 import { useRebuild } from './use-rebuild.js';
+import { announceRebuild } from './announce.js';
 import type { LedgerClient } from '../ledger/rebuild.js';
 
 import { AddressDisplay } from './components/AddressDisplay.js';
@@ -42,12 +43,12 @@ const INVOICE_LIST = CSV_ROWS.map((r) => ({
 
 function DeleteConfirm({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
-    <div role="dialog" aria-modal="true" aria-label="Delete ledger" className="bg-surface border border-line-strong rounded-lg p-6 shadow-overlay max-w-sm mx-auto">
-      <h3 className="text-base font-semibold text-ink mb-2">Delete ledger?</h3>
-      <p className="text-sm text-ink-muted mb-4">
+    <div role="alertdialog" aria-labelledby="delete-title" aria-describedby="delete-body" className="bg-surface border border-line-strong rounded-lg p-6 shadow-overlay max-w-sm mx-auto">
+      <h3 id="delete-title" className="text-base font-semibold text-ink mb-2">Delete ledger?</h3>
+      <p id="delete-body" className="text-sm text-ink-muted mb-4">
         This removes the ledger from this browser. The payments on Arc mainnet are not affected.
       </p>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={onConfirm}
@@ -71,7 +72,7 @@ function DeleteConfirm({ onConfirm, onCancel }: { onConfirm: () => void; onCance
 
 function SkeletonRows({ count }: { count: number }) {
   return (
-    <div className="bg-surface rounded-md border border-line shadow-raised overflow-hidden">
+    <div aria-hidden="true" className="bg-surface rounded-md border border-line shadow-raised overflow-hidden">
       <div className="bg-sunken px-4 py-3 flex gap-4">
         {['w-8', 'w-20', 'w-32', 'w-24', 'w-32', 'w-16'].map((w, i) => (
           <div key={i} className={`h-4 ${w} rounded bg-line`} />
@@ -164,13 +165,21 @@ export function LandingPage() {
   // Last 20 run durations for display
   const lastRun = history[0];
 
+  const announcement = announceRebuild(state, NETWORKS[networkKey].name);
+
   return (
-    <div className="min-h-dvh bg-paper text-ink font-sans">
+    <div className="flex-1 bg-paper text-ink font-sans">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:inline-flex focus:items-center focus:min-h-touch focus:px-5 focus:rounded-md focus:bg-surface focus:text-ink focus:border focus:border-line-strong focus:shadow-overlay text-base font-semibold"
+      >
+        Skip to main content
+      </a>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="border-b border-line bg-surface">
-        <div className="max-w-content mx-auto px-4 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="max-w-content mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
           {/* Logo lockup */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-1 basis-40 min-w-0">
             {/* Logo mark: switches with CSS media query via picture */}
             <picture className="shrink-0">
               <source srcSet={logoMarkInverse} media="(prefers-color-scheme: dark)" />
@@ -180,7 +189,7 @@ export function LandingPage() {
           </div>
 
           {/* Tagline */}
-          <p className="text-sm text-ink-subtle hidden md:block">Pay the batch. Rebuild the books.</p>
+          <p className="text-sm text-ink-subtle hidden lg:block">Pay the batch. Rebuild the books.</p>
 
           {/* Contract address */}
           <div className="flex items-center gap-2 min-w-0">
@@ -206,7 +215,7 @@ export function LandingPage() {
           {/* Run a batch link */}
           <a
             href="/run"
-            className="text-sm font-medium text-ink hover:text-ink-muted underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
+            className="inline-flex items-center min-h-touch text-sm font-medium text-ink hover:text-ink-muted underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
           >
             Run a batch
           </a>
@@ -216,33 +225,33 @@ export function LandingPage() {
             href={ARC_STUDIO_PROJECT}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
+            className="inline-flex items-center min-h-touch text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
           >
             Built with Arc Studio
           </a>
         </div>
       </header>
 
-      {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <section className="max-w-content mx-auto px-4 lg:px-8 py-12 md:py-16">
-        <h1 className="text-3xl md:text-4xl font-bold text-ink tracking-tight mb-4">
-          Delete the ledger.<br />Rebuild it from the chain.
-        </h1>
-        <p className="text-base text-ink-muted max-w-reading">
-          Conciliado pays a batch of contractor invoices in USDC on Arc mainnet, one transaction,
-          each line stamped with its invoice reference. Then it rebuilds the ledger from the chain
-          and ties it to the wallet to the cent.
-        </p>
-      </section>
+      <main id="main" tabIndex={-1} className="max-w-content mx-auto px-4 lg:px-8 pb-16 focus:outline-none">
+        {/* ── Hero ───────────────────────────────────────────────────────── */}
+        <section className="py-12 md:py-16">
+          <h1 className="text-3xl md:text-4xl font-bold text-ink tracking-tight mb-4">
+            Delete the ledger.<br />Rebuild it from the chain.
+          </h1>
+          <p className="text-base text-ink-muted max-w-reading">
+            Conciliado pays a batch of contractor invoices in USDC on Arc mainnet, one transaction,
+            each line stamped with its invoice reference. Then it rebuilds the ledger from the chain
+            and ties it to the wallet to the cent.
+          </p>
+        </section>
 
-      {/* ── Two panels: invoice list + payments ledger ─────────────────── */}
-      <main className="max-w-content mx-auto px-4 lg:px-8 pb-16">
+          {/* ── Two panels: invoice list + payments ledger ─────────────────── */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Panel 1: Invoice list (kept) */}
           <InvoicePanel rows={CSV_ROWS} />
 
           {/* Panel 2: Payments ledger */}
-          <div className="bg-surface rounded-lg border border-line shadow-raised p-4">
+          <div aria-busy={isLoading} className="bg-surface rounded-lg border border-line shadow-raised p-4">
             <h2 className="text-xl font-semibold text-ink mb-1">
               Payments ledger{' '}
               <span className="text-ink-subtle font-normal text-sm">
@@ -324,7 +333,7 @@ export function LandingPage() {
                     href={vm.txUrl ?? '#'}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-xs text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
+                    className="inline-flex items-center min-h-touch font-mono text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
                   >
                     {vm.txHashDisplay}
                   </a>
@@ -389,13 +398,14 @@ export function LandingPage() {
 
             {/* Pending note */}
             {vm.status === 'pending' && (
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <p className="text-sm text-pending">
                   Pending. Waiting for the receipt.
                 </p>
                 <button
+                  type="button"
                   onClick={() => void rebuild()}
-                  className="min-h-touch rounded-md px-3 text-sm font-medium text-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="min-h-touch rounded-md px-3 text-sm font-medium text-ink hover:text-ink-muted underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   Retry
                 </button>
@@ -404,36 +414,24 @@ export function LandingPage() {
           </>
         )}
 
-        {/* Live region for screen reader announcements */}
-        {vm && (
-          <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-          >
-            {state.kind === 'ready'
-              ? `Ledger rebuilt. ${vm.matchSummary}. ${vm.tieOut?.resultWord ?? ''}`
-              : state.kind === 'cached'
-              ? `Showing cached ledger. ${vm.matchSummary}.`
-              : ''}
-          </div>
-        )}
-        {state.kind === 'error' && (
-          <div role="status" aria-live="assertive" aria-atomic="true" className="sr-only">
-            {state.message} No USDC moved.
-          </div>
-        )}
+        {/* Live regions for screen readers. Always mounted so the text is announced
+            when it changes. The status region is polite, the alert region is assertive. */}
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement.status}
+        </div>
+        <div role="alert" aria-live="assertive" aria-atomic="true" className="sr-only">
+          {announcement.alert}
+        </div>
 
         {/* Batch tx reference */}
         <div className="mt-12 pt-8 border-t border-line">
-          <p className="text-xs text-ink-subtle">
-            Transaction:{' '}
+          <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-subtle">
+            Transaction:
             <a
               href={`${EXPLORER_BASE}/tx/${BATCH_TX}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
+              className="inline-flex items-center min-h-touch font-mono text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
             >
               {truncateHash(BATCH_TX)}
             </a>

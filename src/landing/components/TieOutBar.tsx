@@ -1,7 +1,8 @@
 /**
  * TieOutBar: the signature tie-out element.
  * Two bars on the same scale. Tied: final, not tied: danger.
- * Bars are decorative (aria-hidden). Result line is role="status".
+ * Bars are decorative (aria-hidden). The page's always-mounted live regions
+ * announce the result, so this block is not a live region itself.
  */
 
 import type { TieOutView } from '../view-model.js';
@@ -70,7 +71,7 @@ export function TieOutBar({ tieOut }: Props) {
       </div>
 
       {/* Result line */}
-      <div role="status" className="flex flex-col items-center text-center gap-1">
+      <div className="flex flex-col items-center text-center gap-1">
         <div className={`text-4xl tabular font-bold ${resultColor}`}>
           {isTied ? (
             <span className="inline-flex items-center gap-2">

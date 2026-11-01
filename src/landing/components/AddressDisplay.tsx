@@ -14,12 +14,10 @@ interface Props {
 export function AddressDisplay({ value, display, explorerUrl, copyLabel, full }: Props) {
   return (
     <span className="inline-flex items-center gap-1 font-mono text-sm">
-      <span
-        title={value}
-        className={full ? 'break-all' : 'whitespace-nowrap'}
-        aria-label={value}
-      >
-        {full ? value : display}
+      <span title={value} className={full ? 'break-all' : 'whitespace-nowrap'}>
+        {/* Screen readers get the full value; sighted users get the truncated form. */}
+        <span aria-hidden="true">{full ? value : display}</span>
+        <span className="sr-only">{value}</span>
       </span>
       <CopyButton value={value} label={copyLabel ?? `Copy ${display}`} />
       <a
