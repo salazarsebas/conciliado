@@ -97,7 +97,7 @@ Three runs each through the other endpoints Arc lists:
 | dRPC | 0.317 | 0.349 | 0.409 |
 | QuickNode | 0.279 | 0.304 | 0.291 |
 
-The offline tests (`bun run test`, 42 pass, 0 fail) finished in 58 ms on the same day. They
+Those ten runs date from 2026-10-19, when the offline tests (`bun run test`, 42 pass, 0 fail at that date) finished in 58 ms. Today `bun run test` has 237 tests and Foundry has 25. They
 read recorded data, so they say nothing about network time.
 
 ## Chain timing

@@ -220,6 +220,14 @@ export function LandingPage() {
             Run a batch
           </a>
 
+          {/* Metrics link */}
+          <a
+            href="/metrics"
+            className="text-sm font-medium text-ink hover:text-ink-muted underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
+          >
+            Metrics
+          </a>
+
           {/* Arc Studio link */}
           <a
             href={ARC_STUDIO_PROJECT}

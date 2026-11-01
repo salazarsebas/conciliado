@@ -13,6 +13,7 @@ export { makeInvoiceRef } from './ref.js';
 export { formatMicro, formatUsd2, microToNative, nativeToMicro } from './money.js';
 export {
   LedgerInconsistencyError,
+  PAYOUT_BATCH_ABI,
   PayerMismatchError,
   rebuildLedger,
   type FeeRow,

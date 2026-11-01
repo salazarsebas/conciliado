@@ -1,7 +1,7 @@
 # Monitoring plan
 
-Issue: #17. Written on 2026-10-19. Every command in this file was run that day against
-`https://rpc.mainnet.arc.io` and is read-only: no key, no transaction, no gas.
+Issue: #17. Written on 2026-10-19 and re-run on 2026-11-01. Every command in this file was
+run against `https://rpc.mainnet.arc.io` and is read-only: no key, no transaction, no gas.
 
 ## What exists and what does not
 
@@ -10,11 +10,12 @@ Issue: #17. Written on 2026-10-19. Every command in this file was run that day a
 - What exists today is a script that prints `OK`, `WARN`, or `PAGE` per signal and exits
   1 when any line is `PAGE`: [`scripts/check-mainnet.sh`](../scripts/check-mainnet.sh). It
   needs `curl`, `jq`, `bc`, and Foundry's `cast` (Arc Foundry's `arc-cast` works the same).
-- The payer app is not built (issues #12 to #15), so there is nothing to monitor in a
-  browser yet. The app signals are listed at the end as planned, not as running.
-- Because the app will be a static page with no backend, there is no telemetry to collect
-  from payers, by design (see [threat-model.md](threat-model.md)). The monitoring is about
-  the chain, the payer account, and the RPC.
+- The payer app is live at https://conciliado.acachete.xyz as a static page. Nothing watches
+  it: no uptime check is set up. The app signals are listed at the end as planned, not as
+  running. The `/metrics` page is a manual read of the same chain figures in a browser.
+- Because the app is a static page with no backend, there is no telemetry to collect from
+  payers, by design (see [threat-model.md](threat-model.md)). The monitoring is about the
+  chain, the payer account, and the RPC.
 
 ## What is watched on mainnet
 
@@ -26,7 +27,7 @@ Contract `PayoutBatch` `0xC86e2241166785344E4d6692E4D2A3D4c8466d0e`, payer
 | Chain id of the RPC | A wrong network makes every other answer meaningless | not 5042, or no answer | | yes |
 | Head block age | A stalled RPC or chain | older than 30 s | | yes |
 | Payer balance | The next batch needs payouts plus fee | below 0.25 USDC | below 1 USDC | yes |
-| Payer transaction count | Any transaction that is not in the record, including a key compromise | differs from the recorded 4 | | yes |
+| Payer transaction count | Any transaction that is not in the record, including a key compromise | differs from the recorded 5 | | yes |
 | Contract balance | The contract is meant to hold nothing; funds there cannot be withdrawn | | above 0 | yes |
 | Contract runtime code hash | Detects that the address does not hold the recorded code | differs from the recorded hash | | yes |
 | Allow-list events for the payer | An unexpected `PayeeAdded` is the sharpest sign of misuse | net count differs from the recorded 6 | | yes |
@@ -46,7 +47,7 @@ reports the new activity as `PAGE`, which is the point.
 
 | Value | Recorded | Source |
 | --- | --- | --- |
-| Payer transaction count | 4 | The spike deploy, then deploy, `addPayees`, and the first batch |
+| Payer transaction count | 5 | The spike deploy, then deploy, `addPayees`, the first batch, and the batch paid from the app (block 28850288) |
 | Allow-list events | 6 added, 0 removed | The `addPayees` transaction |
 | Runtime code hash | `0x6aa81ec65c8a13dc19048ac2d34ca9b8270a7de2a1a13cb0f6ec04adbb4d7932` | `cast keccak "$(cast code <contract>)"` on 2026-10-19 |
 | Contract balance | 0 | Read on 2026-10-19 |
@@ -127,11 +128,18 @@ The event signatures the script filters on, from `cast sig-event`:
 
 Measured or documented, and the reason the script is written the way it is:
 
-- `eth_getLogs` allows at most 10,000 blocks per call (Arc docs). Since the deploy block
-  26689148 the chain is about 57,600 blocks long, so the script pages in 9,999-block steps.
-- The public endpoint rate limits. Six `eth_getLogs` calls in a row, plus a few other calls
-  just before, got `{"code":-32005,"message":"rate limit exceeded"}` on the sixth. The script
-  waits a second between pages and retries three times with two seconds between tries.
+- `eth_getLogs` allows at most 10,000 blocks per call (Arc docs; 10,000 blocks worked and
+  10,001 returned `requested range too large` on 2026-11-01). Since the deploy block 26689148
+  the chain is more than 2.2 million blocks long, so the script pages in 9,999-block steps:
+  about 217 pages.
+- The public endpoint rate limits. Six `eth_getLogs` calls in a row got
+  `{"code":-32005,"message":"rate limit exceeded"}` on 2026-10-19. On 2026-11-01 a paged scan
+  from the deploy block was limited at 150 ms between pages, and passed at 300 to 400 ms with
+  streaks of up to six limited retries. A JSON-RPC batch does not help, because each call in
+  it counts. The script waits 0.4 s between pages and retries a limited page after 1, 2, 4,
+  8, and 8 seconds. A full run takes minutes. The first version of the script (a 1 s pause,
+  three tries two seconds apart) failed with `PAGE eth_getLogs failed` on the same day once
+  the scan was a few hundred pages long.
 - The endpoint is load-balanced across backends that can sit at slightly different heights
   (Arc docs). A request for a block the serving backend has not imported can fail with
   `-32014`. A retry after a short pause is the documented answer.
@@ -139,8 +147,10 @@ Measured or documented, and the reason the script is written the way it is:
   one place and one moment, not a service level.
 - Other providers answer on the same chain. Blockdaemon, dRPC, and QuickNode returned chain id
   5042 on 2026-10-19, and the rebuild gave the same tie-out through each one. Use
-  `RPC_URL=<endpoint>` for either the script or `bun run ledger:rebuild` when the primary
-  endpoint is slow.
+  `RPC_URL=<endpoint>` for `bun run ledger:rebuild` when the primary endpoint is slow. For the
+  log scan from the deploy block this does not work on every endpoint: Blockdaemon answered
+  `eth_getLogs` over the old blocks with `pruned history unavailable` (code 4444) on
+  2026-11-01.
 
 ## Failed transactions
 
@@ -176,12 +186,14 @@ it exists.
 
 ## When the demo is down: recovery in five minutes
 
-There is no hosted service yet, so "down" today means a command in the README does not work.
-Work through these in order:
+The app is a static page on Vercel with no server of its own, so "down" means the page does
+not load, or a command in the README or a read on the page does not work. Work through these
+in order:
 
 1. `bash scripts/check-mainnet.sh`. If the first line is `PAGE`, the problem is the RPC.
-2. Set another endpoint: `RPC_URL=https://rpc.blockdaemon.mainnet.arc.io bun run ledger:rebuild`,
-   and the same for the script. The dRPC and QuickNode URLs are in the Arc docs.
+2. Set another endpoint: `RPC_URL=https://rpc.blockdaemon.mainnet.arc.io bun run ledger:rebuild`.
+   The dRPC and QuickNode URLs are in the Arc docs. The log scan in the script needs an
+   endpoint that keeps old logs (see above). The app itself has no fallback endpoint.
 3. If the chain id or head block is wrong on every endpoint, the problem is Arc, not this
    repo. Nothing is lost: the contract holds no funds and the batch record is on chain.
 4. If `ledger:rebuild` prints a nonzero difference, open the batch on the explorer and check
@@ -191,15 +203,15 @@ Work through these in order:
    explain it, treat the payer key as compromised: move the remaining USDC to a new account,
    then investigate. Nothing on the contract side can be paused.
 
-Once the app is deployed, add its static host's uptime check here, and the fallback
-endpoint the app uses.
+Add the static host's uptime check here when one exists, and the fallback endpoint once the
+app has one.
 
 ## Planned for the app (not running)
 
 | Signal | Source | Note |
 | --- | --- | --- |
-| Static page reachable | Host uptime check | Not set up, no host chosen |
-| Simulation result per batch | Shown to the payer before signing | Local, never sent anywhere |
-| Rebuild result and tie-out difference | Shown in the app | Local |
-| Time from send to `final` | Measured in the app | Needs a real batch, see [metrics.md](metrics.md) |
+| Static page reachable | Host uptime check | Not set up; the host is Vercel |
+| Simulation result per batch | Shown to the payer before signing (`/run`) | Running in the app; local, never sent anywhere |
+| Rebuild result and tie-out difference | Shown in the app (`/` and after `/run`) and per batch on `/metrics` | Running in the app; local |
+| Time from send to `final` | Not measured by the app | See [metrics.md](metrics.md) |
 | Second RPC endpoint | App configuration | Manual cross-check today |
