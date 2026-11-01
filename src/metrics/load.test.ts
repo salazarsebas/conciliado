@@ -247,3 +247,50 @@ test('loadMetrics fails with no snapshot when the RPC keeps failing', async () =
     loadMetrics({ client: broken, contract: ADDR, usdc: USDC, deployBlock: 24_000n, fetchOptions: { ...fast, attempts: 2 } }),
   ).rejects.toThrow('eth_getLogs failed for blocks 24000-25050: rate limit exceeded');
 });
+
+test('known blocks give figures before the scan, and a batch after them still counts', async () => {
+  const partials: number[] = [];
+  const scannedFrom: bigint[] = [];
+  const chain = fakeChain();
+  const client = {
+    ...chain,
+    getLogs: async (a: { fromBlock: bigint; toBlock: bigint }) => {
+      if (a.fromBlock !== a.toBlock) scannedFrom.push(a.fromBlock);
+      return chain.getLogs(a as never);
+    },
+  } as unknown as LedgerClient;
+
+  const snap = await loadMetrics({
+    client, contract: ADDR, usdc: USDC, deployBlock: 24_000n, fetchOptions: fast,
+    knownBatchBlocks: [BATCH_BLOCK],
+    scanFromBlock: 25_001n,
+    onPartial: (p) => partials.push(p.summary.batches),
+  });
+
+  expect(partials).toEqual([1]);
+  expect(scannedFrom).toEqual([25_001n]);
+  expect(snap.summary.batches).toBe(1);
+  expect(snap.summary.lines).toBe(2);
+});
+
+test('a failed scan after the known blocks rejects, and the partial figures already went out', async () => {
+  let partial = 0;
+  const chain = fakeChain();
+  const client = {
+    ...chain,
+    getLogs: async (a: { fromBlock: bigint; toBlock: bigint }) => {
+      if (a.fromBlock !== a.toBlock) throw new Error('rate limit exceeded');
+      return chain.getLogs(a as never);
+    },
+  } as unknown as LedgerClient;
+
+  await expect(
+    loadMetrics({
+      client, contract: ADDR, usdc: USDC, deployBlock: 24_000n, fetchOptions: { ...fast, attempts: 2 },
+      knownBatchBlocks: [BATCH_BLOCK],
+      scanFromBlock: 25_001n,
+      onPartial: () => partial++,
+    }),
+  ).rejects.toThrow('rate limit exceeded');
+  expect(partial).toBe(1);
+});

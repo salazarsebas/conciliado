@@ -1,19 +1,35 @@
 /**
  * useMetrics: loads the on-chain metrics once on mount and again on demand.
- * States: loading (with progress), ready, error. There is no cached or fallback state:
- * if the RPC fails the page shows the error and no figures.
+ * States: loading (with progress), ready, error. Ready can come early, with the figures of
+ * the known batch blocks, while newer blocks are still being scanned; `checking` says so, and
+ * `scanError` says the scan did not finish. There is no cached or fallback state: every
+ * figure on screen was read from the RPC in this load.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPublicClient, http, type Log } from 'viem';
 import { arcMainnet } from '../landing/chain.js';
 import type { LedgerClient } from '../ledger/rebuild.js';
-import { CONTRACT_ADDRESS, DEPLOY_BLOCK, RPC_URL, USDC_ADDRESS } from './config.js';
+import {
+  CONTRACT_ADDRESS,
+  DEPLOY_BLOCK,
+  KNOWN_BATCH_BLOCKS,
+  RPC_URL,
+  SCAN_FROM_BLOCK,
+  USDC_ADDRESS,
+} from './config.js';
 import { loadMetrics, type LoadPhase, type MetricsSnapshot } from './load.js';
 
 export type MetricsState =
   | { kind: 'loading'; phase: LoadPhase | null; elapsedMs: number }
-  | { kind: 'ready'; snapshot: MetricsSnapshot; durationMs: number; loadedAtUtc: string }
+  | {
+      kind: 'ready';
+      snapshot: MetricsSnapshot;
+      durationMs: number;
+      loadedAtUtc: string;
+      checking: LoadPhase | null;
+      scanError: string | null;
+    }
   | { kind: 'error'; detail: string };
 
 export function useMetrics() {
@@ -47,13 +63,25 @@ export function useMetrics() {
         usdc: USDC_ADDRESS,
         deployBlock: DEPLOY_BLOCK,
         logCache: logCache.current,
+        knownBatchBlocks: KNOWN_BATCH_BLOCKS,
+        scanFromBlock: SCAN_FROM_BLOCK,
+        onPartial: (partial) => {
+          if (run.current !== id) return;
+          setState({
+            kind: 'ready',
+            snapshot: partial,
+            durationMs: Math.round(performance.now() - started),
+            loadedAtUtc: new Date().toISOString(),
+            checking: { kind: 'logs', done: 0, total: 0 },
+            scanError: null,
+          });
+        },
         onPhase: (phase) => {
           if (run.current !== id) return;
-          setState((prev) =>
-            prev.kind === 'loading'
-              ? { ...prev, phase, elapsedMs: Math.round(performance.now() - started) }
-              : prev,
-          );
+          setState((prev) => {
+            if (prev.kind === 'ready') return { ...prev, checking: phase };
+            return { ...prev, phase, elapsedMs: Math.round(performance.now() - started) } as MetricsState;
+          });
         },
       });
       if (run.current !== id) return;
@@ -62,10 +90,15 @@ export function useMetrics() {
         snapshot,
         durationMs: Math.round(performance.now() - started),
         loadedAtUtc: new Date().toISOString(),
+        checking: null,
+        scanError: null,
       });
     } catch (err: unknown) {
       if (run.current !== id) return;
-      setState({ kind: 'error', detail: err instanceof Error ? err.message : String(err) });
+      const detail = err instanceof Error ? err.message : String(err);
+      setState((prev) =>
+        prev.kind === 'ready' ? { ...prev, checking: null, scanError: detail } : { kind: 'error', detail },
+      );
     } finally {
       clearInterval(tick);
     }

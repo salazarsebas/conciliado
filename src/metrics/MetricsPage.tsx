@@ -17,7 +17,7 @@ import {
 } from '../landing/format.js';
 import { formatUsdc9 } from './format.js';
 import type { BatchRow, MetricsSummary } from './aggregate.js';
-import { CONTRACT_ADDRESS, DEPLOY_BLOCK, EXPLORER_BASE } from './config.js';
+import { CONTRACT_ADDRESS, DEPLOY_BLOCK, EXPLORER_BASE, SCAN_FROM_BLOCK } from './config.js';
 import type { LoadPhase } from './load.js';
 import { useMetrics } from './use-metrics.js';
 
@@ -184,8 +184,8 @@ export default function MetricsPage() {
           Read from the chain in your browser: the logs of{' '}
           <a href={`${EXPLORER_BASE}/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" title={CONTRACT_ADDRESS} className={`font-mono ${LINK}`}>
             {truncateAddress(CONTRACT_ADDRESS)}
-          </a>{' '}
-          from block {formatBlockNumber(DEPLOY_BLOCK)}. No wallet, no server, no stored numbers.
+          </a>
+          , deployed at block {formatBlockNumber(DEPLOY_BLOCK)}. No wallet, no server, no stored figures.
         </p>
 
         {state.kind === 'loading' && (
@@ -200,10 +200,6 @@ export default function MetricsPage() {
               />
             )}
             <p className="text-sm tabular text-ink-subtle mt-2">{formatDuration(state.elapsedMs)}</p>
-            <p className="text-xs text-ink-subtle mt-2 max-w-reading">
-              The public RPC limits log reads to 10,000 blocks and a few calls a second, so a full
-              read takes about three minutes.
-            </p>
           </div>
         )}
 
@@ -243,9 +239,24 @@ export default function MetricsPage() {
               <BatchTable rows={state.snapshot.summary.rows} />
             </div>
 
+            <div role="status" aria-live="polite" className="text-sm text-ink-muted max-w-reading mb-4">
+              {state.checking
+                ? `Checking blocks from ${formatBlockNumber(SCAN_FROM_BLOCK)} for newer batches: ${
+                    state.checking.total > 0 ? `${state.checking.done} of ${state.checking.total} pages` : 'starting'
+                  }.`
+                : !state.scanError && 'Checked through the chain head. These are all the batches.'}
+            </div>
+            {state.scanError && (
+              <p role="alert" className="text-sm text-danger max-w-reading mb-4">
+                The check for newer batches did not finish, so there may be batches after block{' '}
+                {formatBlockNumber(SCAN_FROM_BLOCK)} that are not shown. Read again to retry.
+              </p>
+            )}
+
             <p className="text-xs text-ink-subtle max-w-reading mb-4">
-              Read at block {formatBlockNumber(state.snapshot.headBlock)} on {formatUtc(state.loadedAtUtc)}:{' '}
-              {state.snapshot.pages} log pages and the receipt of each batch, in {formatDuration(state.durationMs)}.
+              Read at block {formatBlockNumber(state.snapshot.headBlock)} on {formatUtc(state.loadedAtUtc)}, in{' '}
+              {formatDuration(state.durationMs)}. Blocks before {formatBlockNumber(SCAN_FROM_BLOCK)} were scanned once
+              on 2026-11-01; the page reads the batches found there directly and scans every later block.
               Fee is gas used times gas price from the batch receipt, so it includes any approval sent in the same
               transaction. The tie-out compares each ledger rebuilt from the chain with the payer wallet balance change.
               Payee addresses and amounts are public on Arc mainnet.

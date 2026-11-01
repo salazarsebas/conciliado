@@ -196,6 +196,12 @@ export interface LoadArgs {
   fetchOptions?: FetchOptions;
   /** Pages kept between reads in one session; see FetchOptions.cache. */
   logCache?: Map<string, readonly Log[]>;
+  /** Blocks read directly before the scan. Their figures go to onPartial. */
+  knownBatchBlocks?: bigint[];
+  /** First block of the scan. Defaults to deployBlock. */
+  scanFromBlock?: bigint;
+  /** Called with the figures of the known blocks, before the scan starts. */
+  onPartial?: (snapshot: MetricsSnapshot) => void;
 }
 
 export async function loadMetrics({
@@ -206,12 +212,65 @@ export async function loadMetrics({
   onPhase,
   fetchOptions,
   logCache,
+  knownBatchBlocks = [],
+  scanFromBlock = deployBlock,
+  onPartial,
 }: LoadArgs): Promise<MetricsSnapshot> {
   // One pacing and retry layer for every call, the log scan and the ledger rebuild alike.
   const paced = pacedClient(client, fetchOptions);
   const headBlock = await paced.getBlockNumber();
+  const knownLogs: Log[] = [];
+  for (const block of knownBatchBlocks) {
+    knownLogs.push(...(await paced.getLogs({ address: contract, fromBlock: block, toBlock: block })));
+  }
+
+  // Fee and tie-out per batch come from the existing ledger rebuild, which reads the
+  // receipt, the logs of the batch block, and the payer balance before and after.
+  const settlements = new Map<string, BatchSettlement>();
+  const settle = async (decoded: ReturnType<typeof decodeContractLogs>) => {
+    const open = decoded.batches.filter((b) => !settlements.has(b.txHash.toLowerCase()));
+    onPhase?.({ kind: 'batches', done: 0, total: open.length });
+    for (const [i, batch] of open.entries()) {
+      const result = await rebuildLedgerSettled({
+        client: paced,
+        contract,
+        payer: batch.payer,
+        usdc,
+        target: { txHash: batch.txHash },
+        invoiceList: [],
+      });
+      if (
+        result.status !== 'final' ||
+        result.feeRow === null ||
+        result.differenceNative18 === null
+      ) {
+        throw new Error(`No receipt yet for batch ${batch.batchId} (${batch.txHash})`);
+      }
+      settlements.set(batch.txHash.toLowerCase(), {
+        feeNative18: result.feeRow.feeNative18,
+        differenceNative18: result.differenceNative18,
+        warnings: result.warnings,
+      });
+      onPhase?.({ kind: 'batches', done: i + 1, total: open.length });
+    }
+  };
+
+  let contractBalanceNative18: bigint | null = null;
+  if (knownBatchBlocks.length > 0) {
+    const decoded = decodeContractLogs(knownLogs);
+    await settle(decoded);
+    contractBalanceNative18 = await paced.getBalance({ address: contract });
+    onPartial?.({
+      summary: summarize(decoded, settlements),
+      contractBalanceNative18,
+      headBlock,
+      fromBlock: deployBlock,
+      pages: 0,
+    });
+  }
+
   let pages = 0;
-  const logs = await fetchLogsPaged(paced, contract, deployBlock, headBlock, {
+  const scanned = await fetchLogsPaged(paced, contract, scanFromBlock, headBlock, {
     ...fetchOptions,
     gapMs: 0,
     attempts: 1,
@@ -222,37 +281,9 @@ export async function loadMetrics({
     },
   });
 
-  const decoded = decodeContractLogs(logs);
-
-  // Fee and tie-out per batch come from the existing ledger rebuild, which reads the
-  // receipt, the logs of the batch block, and the payer balance before and after.
-  const settlements = new Map<string, BatchSettlement>();
-  onPhase?.({ kind: 'batches', done: 0, total: decoded.batches.length });
-  for (const [i, batch] of decoded.batches.entries()) {
-    const result = await rebuildLedgerSettled({
-      client: paced,
-      contract,
-      payer: batch.payer,
-      usdc,
-      target: { txHash: batch.txHash },
-      invoiceList: [],
-    });
-    if (
-      result.status !== 'final' ||
-      result.feeRow === null ||
-      result.differenceNative18 === null
-    ) {
-      throw new Error(`No receipt yet for batch ${batch.batchId} (${batch.txHash})`);
-    }
-    settlements.set(batch.txHash.toLowerCase(), {
-      feeNative18: result.feeRow.feeNative18,
-      differenceNative18: result.differenceNative18,
-      warnings: result.warnings,
-    });
-    onPhase?.({ kind: 'batches', done: i + 1, total: decoded.batches.length });
-  }
-
-  const contractBalanceNative18 = await paced.getBalance({ address: contract });
+  const decoded = decodeContractLogs([...knownLogs, ...scanned]);
+  await settle(decoded);
+  contractBalanceNative18 ??= await paced.getBalance({ address: contract });
 
   return {
     summary: summarize(decoded, settlements),
