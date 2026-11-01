@@ -61,6 +61,63 @@ export interface FetchOptions {
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+interface RetryOptions {
+  attempts: number;
+  retryBaseMs: number;
+  retryMaxMs: number;
+  sleep: (ms: number) => Promise<void>;
+}
+
+/** Run `fn`, retrying after a growing wait. Throws the last error once the tries are used. */
+async function withRetry<T>(fn: () => Promise<T>, o: RetryOptions): Promise<T> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < o.attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      lastError = err;
+      if (attempt < o.attempts - 1) await o.sleep(Math.min(o.retryBaseMs * 2 ** attempt, o.retryMaxMs));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+const LEDGER_METHODS = [
+  'getLogs',
+  'getTransactionReceipt',
+  'getBlock',
+  'getBlockNumber',
+  'getBalance',
+  'readContract',
+] as const;
+
+/**
+ * Wrap a ledger client so every call goes one at a time, with `gapMs` between calls and a
+ * retry on any error. The public RPC rate limits the whole endpoint, not only getLogs, and
+ * rebuildLedger sends several reads at once, so the existing ledger code needs the same
+ * pacing as the log scan. Used only for reads.
+ */
+export function pacedClient(
+  client: LedgerClient,
+  { gapMs = 400, attempts = 12, retryBaseMs = 1_000, retryMaxMs = 8_000, sleep = defaultSleep }: Partial<RetryOptions> & { gapMs?: number } = {},
+): LedgerClient {
+  let queue: Promise<unknown> = Promise.resolve();
+  const wrapped: Record<string, unknown> = {};
+  for (const method of LEDGER_METHODS) {
+    wrapped[method] = (...args: unknown[]) => {
+      const call = () => (client[method] as (...a: unknown[]) => Promise<unknown>)(...args);
+      const result = queue.then(() => withRetry(call, { attempts, retryBaseMs, retryMaxMs, sleep }));
+      queue = result.then(
+        () => sleep(gapMs),
+        () => sleep(gapMs),
+      );
+      return result;
+    };
+  }
+  // The wrapper has the same six methods with the same signatures; only timing differs.
+  return wrapped as unknown as LedgerClient;
+}
+
 /** The one client method the paging needs; viem's PublicClient satisfies it. */
 export interface LogsClient {
   getLogs(args: { address: Address; fromBlock: bigint; toBlock: bigint }): Promise<readonly Log[]>;
@@ -95,18 +152,14 @@ export async function fetchLogsPaged(
       onProgress?.(i + 1, ranges.length);
       continue;
     }
-    let page: Log[] | null = null;
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < attempts && page === null; attempt++) {
-      try {
-        page = [...(await client.getLogs({ address, fromBlock: range.from, toBlock: range.to }))];
-      } catch (err: unknown) {
-        lastError = err;
-        if (attempt < attempts - 1) await sleep(Math.min(retryBaseMs * 2 ** attempt, retryMaxMs));
-      }
-    }
-    if (page === null) {
-      const reason = lastError instanceof Error ? lastError.message : String(lastError);
+    let page: Log[];
+    try {
+      page = await withRetry(
+        async () => [...(await client.getLogs({ address, fromBlock: range.from, toBlock: range.to }))],
+        { attempts, retryBaseMs, retryMaxMs, sleep },
+      );
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.message : String(err);
       throw new Error(`eth_getLogs failed for blocks ${range.from}-${range.to}: ${reason}`);
     }
     all.push(...page);
@@ -154,10 +207,14 @@ export async function loadMetrics({
   fetchOptions,
   logCache,
 }: LoadArgs): Promise<MetricsSnapshot> {
-  const headBlock = await client.getBlockNumber();
+  // One pacing and retry layer for every call, the log scan and the ledger rebuild alike.
+  const paced = pacedClient(client, fetchOptions);
+  const headBlock = await paced.getBlockNumber();
   let pages = 0;
-  const logs = await fetchLogsPaged(client, contract, deployBlock, headBlock, {
+  const logs = await fetchLogsPaged(paced, contract, deployBlock, headBlock, {
     ...fetchOptions,
+    gapMs: 0,
+    attempts: 1,
     cache: logCache,
     onProgress: (done, total) => {
       pages = total;
@@ -173,7 +230,7 @@ export async function loadMetrics({
   onPhase?.({ kind: 'batches', done: 0, total: decoded.batches.length });
   for (const [i, batch] of decoded.batches.entries()) {
     const result = await rebuildLedgerSettled({
-      client,
+      client: paced,
       contract,
       payer: batch.payer,
       usdc,
@@ -195,7 +252,7 @@ export async function loadMetrics({
     onPhase?.({ kind: 'batches', done: i + 1, total: decoded.batches.length });
   }
 
-  const contractBalanceNative18 = await client.getBalance({ address: contract });
+  const contractBalanceNative18 = await paced.getBalance({ address: contract });
 
   return {
     summary: summarize(decoded, settlements),

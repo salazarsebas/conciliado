@@ -3,8 +3,10 @@
  */
 
 import { expect, test } from 'bun:test';
-import type { Address, Log } from 'viem';
-import { fetchLogsPaged, pageRanges } from './load.js';
+import { encodeAbiParameters, encodeEventTopics, type Address, type Hex, type Log } from 'viem';
+import { PAYOUT_BATCH_ABI } from '../ledger/index.js';
+import type { LedgerClient } from '../ledger/rebuild.js';
+import { fetchLogsPaged, loadMetrics, pacedClient, pageRanges } from './load.js';
 
 const ADDR = '0xC86e2241166785344E4d6692E4D2A3D4c8466d0e' as Address;
 const noSleep = async () => {};
@@ -132,4 +134,116 @@ test('a failed read keeps the pages it already got', async () => {
     fetchLogsPaged(client, ADDR, 0n, 19_999n, { gapMs: 0, attempts: 2, sleep: noSleep, cache }),
   ).rejects.toThrow('rate limit exceeded');
   expect([...cache.keys()]).toEqual(['0-9999']);
+});
+
+test('pacedClient sends calls one at a time and retries a failing call', async () => {
+  let active = 0;
+  let maxActive = 0;
+  let failures = 1;
+  const waits: number[] = [];
+  const inner = {
+    getBlockNumber: async () => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await Promise.resolve();
+      active--;
+      if (failures-- > 0) throw new Error('rate limit exceeded');
+      return 7n;
+    },
+    getBalance: async () => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      await Promise.resolve();
+      active--;
+      return 9n;
+    },
+  } as unknown as LedgerClient;
+  const paced = pacedClient(inner, { gapMs: 5, retryBaseMs: 10, sleep: async (ms) => { waits.push(ms); } });
+  const [a, b] = await Promise.all([paced.getBlockNumber(), paced.getBalance({ address: ADDR })]);
+  expect([a, b]).toEqual([7n, 9n]);
+  expect(maxActive).toBe(1);
+  expect(waits).toEqual([10, 5, 5]);
+});
+
+// ─── loadMetrics against a fake chain with one batch of two lines ──────────────
+
+const PAYER = '0x429Fd794Ed2166c0F6fFef39fA6A1F580Ba64364' as Address;
+const USDC = '0x3600000000000000000000000000000000000000' as Address;
+const TX = ('0x' + 'c3'.repeat(32)) as Hex;
+const PAYEE_A = '0xFe2b873C97CE177A0AF5e3BEad37EFE336e6a571' as Address;
+const PAYEE_B = '0x5eb1f8E7b85938E2eB71a1a0A0c71c9155B79F07' as Address;
+const BATCH_BLOCK = 25_000n;
+const GAS_USED = 300_000n;
+const GAS_PRICE = 21_000_000_000n;
+const FEE = GAS_USED * GAS_PRICE;
+const PAID_MICRO = 50_000n;
+const PAYER_BEFORE = 5_000_000_000_000_000_000n;
+
+function fakeChain(opts: { balanceAfterOffset?: bigint } = {}) {
+  const word = (n: bigint) => n;
+  const logs: Log[] = [
+    {
+      address: ADDR, blockNumber: BATCH_BLOCK, transactionHash: TX, removed: false,
+      topics: encodeEventTopics({ abi: PAYOUT_BATCH_ABI, eventName: 'InvoicePaid', args: { batchId: 1n, payee: PAYEE_A, invoiceRef: ('0x' + '01'.repeat(32)) as Hex } }),
+      data: encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [0n, word(20_000n)]),
+    } as Log,
+    {
+      address: ADDR, blockNumber: BATCH_BLOCK, transactionHash: TX, removed: false,
+      topics: encodeEventTopics({ abi: PAYOUT_BATCH_ABI, eventName: 'InvoicePaid', args: { batchId: 1n, payee: PAYEE_B, invoiceRef: ('0x' + '02'.repeat(32)) as Hex } }),
+      data: encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [1n, word(30_000n)]),
+    } as Log,
+    {
+      address: ADDR, blockNumber: BATCH_BLOCK, transactionHash: TX, removed: false,
+      topics: encodeEventTopics({ abi: PAYOUT_BATCH_ABI, eventName: 'BatchPaid', args: { batchId: 1n, payer: PAYER } }),
+      data: encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [2n, PAID_MICRO]),
+    } as Log,
+  ];
+  const nativeAt = (block: bigint) =>
+    block < BATCH_BLOCK ? PAYER_BEFORE : PAYER_BEFORE - PAID_MICRO * 1_000_000_000_000n - FEE - (opts.balanceAfterOffset ?? 0n);
+  return {
+    getBlockNumber: async () => 25_050n,
+    getLogs: async (a: { fromBlock: bigint; toBlock: bigint }) =>
+      logs.filter((l) => l.blockNumber! >= a.fromBlock && l.blockNumber! <= a.toBlock),
+    getTransactionReceipt: async () => ({
+      blockNumber: BATCH_BLOCK, status: 'success', gasUsed: GAS_USED, effectiveGasPrice: GAS_PRICE, transactionHash: TX,
+    }),
+    getBlock: async () => ({ transactions: [{ from: PAYER, hash: TX }] }),
+    readContract: async (a: { blockNumber: bigint }) => nativeAt(a.blockNumber) / 1_000_000_000_000n,
+    getBalance: async (a: { address: Address; blockNumber?: bigint }) =>
+      a.address === ADDR ? 0n : nativeAt(a.blockNumber ?? 0n),
+  } as unknown as LedgerClient;
+}
+
+const fast = { gapMs: 0, retryBaseMs: 0, sleep: async () => {} };
+
+test('loadMetrics reads logs, the ledger tie-out and the contract balance', async () => {
+  const snap = await loadMetrics({
+    client: fakeChain(), contract: ADDR, usdc: USDC, deployBlock: 24_000n, fetchOptions: fast,
+  });
+  expect(snap.headBlock).toBe(25_050n);
+  expect(snap.pages).toBe(1);
+  expect(snap.contractBalanceNative18).toBe(0n);
+  const s = snap.summary;
+  expect(s).toMatchObject({ batches: 1, lines: 2, paidMicro: 50_000n, distinctPayers: 1, distinctPayees: 2 });
+  expect(s.feeNative18).toBe(FEE);
+  expect(s.feePerLineNative18).toBe(FEE / 2n);
+  expect(s.rows[0].differenceNative18).toBe(0n);
+  expect(s.inconsistencies).toEqual([]);
+});
+
+test('loadMetrics reports a tie-out difference instead of hiding it', async () => {
+  const snap = await loadMetrics({
+    client: fakeChain({ balanceAfterOffset: 1_000n }), contract: ADDR, usdc: USDC, deployBlock: 24_000n, fetchOptions: fast,
+  });
+  expect(snap.summary.rows[0].differenceNative18).toBe(-1_000n);
+});
+
+test('loadMetrics fails with no snapshot when the RPC keeps failing', async () => {
+  const broken = {
+    ...fakeChain(),
+    getLogs: async () => { throw new Error('rate limit exceeded'); },
+  } as unknown as LedgerClient;
+  await expect(
+    loadMetrics({ client: broken, contract: ADDR, usdc: USDC, deployBlock: 24_000n, fetchOptions: { ...fast, attempts: 2 } }),
+  ).rejects.toThrow('eth_getLogs failed for blocks 24000-25050: rate limit exceeded');
 });
