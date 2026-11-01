@@ -18,3 +18,7 @@ __pycache__/
 # Circle entity secret and recovery files
 .circle/
 *recovery_file*
+
+# Playwright output
+test-results/
+playwright-report/
