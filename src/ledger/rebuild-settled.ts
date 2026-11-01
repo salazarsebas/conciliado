@@ -3,24 +3,38 @@
  *
  * The Arc RPC is load balanced and a node can answer null for a receipt that
  * another node already has, so one pending answer does not mean the tx is
- * unconfirmed. Retrying a few times covers that lag and a just-mined tx.
+ * unconfirmed. Retrying covers that lag and a just-mined tx. A stuck node can
+ * keep answering null, so attempts rotate through any fallback clients, which
+ * also take over when a client throws.
  */
 
-import { rebuildLedger, type LedgerResult, type RebuildArgs } from './rebuild.js';
+import { rebuildLedger, type LedgerClient, type LedgerResult, type RebuildArgs } from './rebuild.js';
 
 export interface SettleOptions {
   attempts?: number;
   delayMs?: number;
+  fallbackClients?: LedgerClient[];
 }
 
 export async function rebuildLedgerSettled(
   args: RebuildArgs,
-  { attempts = 5, delayMs = 800 }: SettleOptions = {},
+  { attempts = 5, delayMs = 800, fallbackClients = [] }: SettleOptions = {},
 ): Promise<LedgerResult> {
-  let result = await rebuildLedger(args);
-  for (let i = 1; i < attempts && result.status === 'pending'; i++) {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    result = await rebuildLedger(args);
+  const clients = [args.client, ...fallbackClients];
+  let result: LedgerResult | undefined;
+  let lastError: unknown;
+
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    try {
+      result = await rebuildLedger({ ...args, client: clients[i % clients.length] });
+      if (result.status !== 'pending') return result;
+    } catch (error) {
+      if (clients.length === 1) throw error;
+      lastError = error;
+    }
   }
-  return result;
+
+  if (result) return result;
+  throw lastError;
 }

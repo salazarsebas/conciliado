@@ -3,7 +3,7 @@
  */
 
 import { createPublicClient, defineChain, http } from 'viem';
-import { RPC_URL, EXPLORER_BASE } from './batch.js';
+import { FALLBACK_RPC_URLS, RPC_URL, EXPLORER_BASE } from './batch.js';
 
 // Arc mainnet (chain 5042)
 export const arcMainnet = defineChain({
@@ -54,4 +54,12 @@ export function createLandingClient(networkKey?: 'mainnet' | 'testnet') {
     chain: arcMainnet,
     transport: http(RPC_URL, { batch: true }),
   });
+}
+
+/** Public clients for the other mainnet RPC providers. Testnet has none. */
+export function createFallbackClients(networkKey?: 'mainnet' | 'testnet') {
+  if (networkKey === 'testnet') return [];
+  return FALLBACK_RPC_URLS.map((url) =>
+    createPublicClient({ chain: arcMainnet, transport: http(url, { batch: true }) }),
+  );
 }
