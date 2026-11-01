@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, type Log } from 'viem';
 import { arcMainnet } from '../landing/chain.js';
 import type { LedgerClient } from '../ledger/rebuild.js';
 import { CONTRACT_ADDRESS, DEPLOY_BLOCK, RPC_URL, USDC_ADDRESS } from './config.js';
@@ -19,6 +19,8 @@ export type MetricsState =
 export function useMetrics() {
   const [state, setState] = useState<MetricsState>({ kind: 'loading', phase: null, elapsedMs: 0 });
   const run = useRef(0);
+  // Pages of logs read so far in this session: a retry or a second read does not repeat them.
+  const logCache = useRef(new Map<string, readonly Log[]>());
 
   const load = useCallback(async () => {
     const id = ++run.current;
@@ -44,6 +46,7 @@ export function useMetrics() {
         contract: CONTRACT_ADDRESS,
         usdc: USDC_ADDRESS,
         deployBlock: DEPLOY_BLOCK,
+        logCache: logCache.current,
         onPhase: (phase) => {
           if (run.current !== id) return;
           setState((prev) =>

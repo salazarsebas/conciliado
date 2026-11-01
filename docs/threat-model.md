@@ -1,12 +1,16 @@
 # Threat model
 
 Issue: #17 (threat model, monitoring plan, metrics). Written on 2026-10-19 against `main`.
+Re-checked against the shipped `/run` flow, the second mainnet batch, and `main` on 2026-11-01;
+the sections that changed say so.
 
 Scope: the `PayoutBatch` contract live on Arc mainnet, the payer key, the invoice CSV and
 reference privacy model, the read-only ledger rebuild, RPC trust, and the people around
-them. The payer web app is not built yet (issues #12 to #15), so every app control below is
-marked as designed, not as done. The monitoring plan is in [monitoring.md](monitoring.md) and
-the numbers are in [metrics.md](metrics.md).
+them. The payer web app is live at https://conciliado.acachete.xyz (`/run` pays a batch,
+`/` rebuilds a ledger, `/metrics` reads the chain). An app control is marked **in place** only
+where the code and a test or a mainnet transaction show it, and **designed** where it is
+still a plan. The monitoring plan is in [monitoring.md](monitoring.md) and the numbers are in
+[metrics.md](metrics.md).
 
 Review status: **sign-off pending.** The ship standards require the `threat-modeler` review
 before the public flip, and it has not run on this file. There is also no paid third-party
@@ -18,8 +22,8 @@ Every threat has a control and a status:
 
 - **In place**: checked in the contract source, the tests, the rebuild code, or on chain.
   The check is named.
-- **Designed**: described in the README or the architecture, but the app that would do it
-  does not exist yet.
+- **Designed**: described in the README or the architecture, but nothing in the code or on
+  chain does it yet.
 - **Gap**: nothing stops it today.
 
 "Residual" is what is left after the control, stated as plainly as I can.
@@ -28,13 +32,13 @@ Every threat has a control and a status:
 
 | Asset | Where it lives | Why it matters |
 | --- | --- | --- |
-| The payer's USDC | The payer's own account, `0x429Fd794Ed2166c0F6fFef39fA6A1F580Ba64364` (5.753190523 USDC on 2026-10-19) | It is the money the batch moves. The contract holds none of it. |
+| The payer's USDC | The payer's own account, `0x429Fd794Ed2166c0F6fFef39fA6A1F580Ba64364` (5.549552547685857192 USDC on 2026-11-01, after two batches) | It is the money the batch moves. The contract holds none of it. |
 | The payer's signing key | The payer's key or wallet | It authorizes every payment and every allow-list change. |
 | Allow-list integrity | `PayoutBatch` storage, keyed by payer | It decides who can be paid from a payer's account through the contract. |
 | Duplicate-payment guard | `PayoutBatch` storage, keyed by payer | A used `invoiceRef` cannot be paid again. |
 | The invoice-to-payment mapping | The payer's CSV and salt, off chain | The chain shows who was paid and how much. It should not show which invoice. |
 | Ledger correctness | Output of `src/ledger/` | People will rely on "difference 0" to close their books. |
-| The page the payer loads (later) | Static host | A tampered bundle could change payees or amounts before signing. |
+| The page the payer loads | Static host (Vercel) at `conciliado.acachete.xyz` | A tampered bundle could change payees or amounts before signing. |
 
 ## 2. Who we assume
 
@@ -46,13 +50,14 @@ Every threat has a control and a status:
 | Arc chain | Trusted for ordering and finality. | Arc documents a Proof-of-Authority validator set. A hostile validator set is out of scope. |
 | USDC on Arc | Trusted token. Run by Circle. | Enforces a blocklist at runtime (see [B1](#b1-a-blocklisted-payee-reverts-the-whole-batch)). |
 | RPC operator | Trusted for availability, not for integrity. | Can delay, drop, rate limit, or lie. See [N1](#n1-the-rpc-returns-wrong-or-stale-data). |
-| Static host and CDN (later) | Trusted to serve the right bundle. | Can serve a different bundle. |
+| Static host and CDN | Trusted to serve the right bundle. | Can serve a different bundle. |
 | Developer machine, Arc Studio, package registry | Trusted to produce the code. | Can introduce a bad dependency or a bad file. |
 
 Trust boundaries, from the payer outward:
 
-1. Payer to wallet: the key never enters the app. This is designed. The only signer in the
-   repo today is the command line used for the deploy and the first batch.
+1. Payer to wallet: the key never enters the app. The app has no key field: it signs through
+   the browser wallet (`useWalletClient`, injected connector only, `src/config.ts`). The only
+   other signer is the command line used for the deploy and the first batch.
 2. Wallet to chain: the contract and USDC enforce their own rules, whatever the app says.
 3. App or CLI to RPC: everything read here (logs, receipts, balances, `eth_call`) is
    claimed by the RPC, not proven.
@@ -90,8 +95,11 @@ Trust boundaries, from the payer outward:
 - The first batch approved exactly the batch total in the same transaction through
   `Multicall3From` and left an allowance of 0 afterwards (checked and recorded in
   [mainnet.md](deployments/mainnet.md)).
-- Status: **in place** for the contract. **Designed** for the app (approve the exact total
-  in the same transaction, never an unlimited allowance).
+- The app does the same: `buildAggregate3Calls` in `src/run/calls.ts` encodes
+  `USDC.approve(payoutBatch, total)` then `payBatch(lines, total)` as one `aggregate3` call
+  with `allowFailure` false, and `src/run/calls.test.ts` covers it. No code path in `src/run/`
+  approves a different amount. The app's second batch is on chain in block 28850288.
+- Status: **in place** for the contract and for the app's batch call.
 - Residual: an unlimited approval to `PayoutBatch` would still only be usable by the payer
   themselves, but it would be a standing permission on a contract that cannot be upgraded
   or paused. The app must not ask for it.
@@ -189,15 +197,19 @@ Trust boundaries, from the payer outward:
 
 - Threat: a lookalike site or a tampered page shows the payer one batch and asks the wallet
   to sign another, or asks for an approval to a different spender.
-- Control: designed. The app builds the batch, simulates it with `eth_call`, and the wallet
-  shows the transaction. The contract address and chain id 5042 are meant to be fixed in
-  the build. Today the scaffold `src/config.ts` is configured for Arc testnet (and mainnet
-  Ethereum for ENS), so the mainnet address is not wired in anywhere in the app.
-- Status: **designed.** No domain, host, or security headers exist yet.
+- Control: the app builds the batch from the uploaded CSV, simulates it with `eth_call` and
+  `estimateGas` before the Pay button is enabled (`FlowController.simulate`,
+  `src/run/simulate.ts`), and the wallet shows the transaction. The contract, USDC, and
+  `Multicall3From` addresses and chain ids 5042 and 5042002 are fixed in the build
+  (`src/run/networks.ts`, `src/config.ts`), the flow checks that the three contracts have code
+  on the selected network, and Pay is disabled while the wallet is on another chain
+  (`isWrongChain` in `src/run/RunPage.tsx`). The domain and the contract address are in the
+  README.
+- Status: **partial.** The checks are in the code. `vercel.json` only rewrites paths to
+  `index.html`: there is no content security policy and no `frame-ancestors` header, and I
+  did not check the host's headers in a browser.
 - Residual: a wallet confirmation screen is the last line of defense, and many payers click
-  through it. When the app is deployed, set a content security policy and frame-ancestors
-  to none, and publish the domain and the contract address in the README so a payer can
-  compare them.
+  through it. Set a content security policy and `frame-ancestors 'none'` on the host.
 
 ### The allow-list
 
@@ -212,8 +224,11 @@ Trust boundaries, from the payer outward:
 - Control: the allow-list cannot be edited by anyone but its payer
   (`test_allowListIsPerPayer`), removal works (`test_removePayeeBlocksPayment`), and both
   directions emit events. The first batch used a separate `addPayees` transaction before the
-  batch. The plan is to keep that as its own step in the app with its own review.
-- Status: **in place** (contract), **designed** (separate review step).
+  batch. The app keeps that as its own step: `/run` checks `isPayeeAllowed` for every payee,
+  lists the ones not yet allowed, and sends `addPayees` only when the payer presses the
+  button (`unallowedPayees` in `src/run/flow.ts`), before it simulates the batch.
+- Status: **in place** (contract and the app's separate step). The step shows the addresses
+  but does not make the payer confirm them with the payee (see F1).
 - Residual:
   - If the attacker changes the CSV and also gets the payer to approve the new address in
     the allow-list step, nothing stops the payment. See [F1](#f1-payee-address-substitution).
@@ -233,7 +248,10 @@ Trust boundaries, from the payer outward:
   one bad ref reverts the whole batch (`test_atomicity`).
 - Status: **in place**, for identical refs.
 - Residual: the ref is `keccak256(invoiceId ++ salt)`. If the same invoice is entered again
-  with a different salt, the ref is different and the contract pays it. The guard is only as
+  with a different salt, the ref is different and the contract pays it. The app generates a
+  new salt on every CSV upload (`uploadFile` in `src/run/flow.ts`), so uploading the same file
+  again, in a new session or after a reload, gives new refs and the on-chain used-ref check
+  cannot catch it. Only the payer's saved salt file and records can. The guard is only as
   strong as the payer's discipline in keeping one stable salt per invoice. The rebuild
   cannot detect it either, because a new salt gives a new ref that has no local twin to
   compare with. Keep one stable salt per invoice and back it up; the payee and amount
@@ -253,9 +271,11 @@ Trust boundaries, from the payer outward:
   and the CLI exits 1. The unit tests cover payee only, amount only, both, and the cases
   that must still match (`src/ledger/rebuild.test.ts`). The first mainnet batch still joins
   6 of 6 with 0 mismatches (`bun run ledger:rebuild`, run read-only on 2026-10-19).
-- Status: **partial.** The check runs after the payment, in the rebuild. Nothing stops a
-  tampered CSV before the payment, because the pre-send review and simulation in the app are
-  not built. An invoice given without `payee` and `amountMicro` is still joined by ref only.
+- Status: **partial.** The check runs after the payment, in the rebuild. `/run` passes the
+  payee and amount of every CSV row to the rebuild, so a batch it pays is checked on all three.
+  Nothing stops a CSV that was tampered with before upload: the app shows the parsed rows and
+  simulates, but the payer is the check. An invoice given without `payee` and `amountMicro`
+  (the landing with `?tx=`) is still joined by ref only.
 - Residual: the contract cannot stop a wrong payee or amount. The rebuild now shows it, after
   the fact. The landing shows the word and the icon for a mismatch, and the expected and
   actual values are in the data and the CLI output, not yet in a visible line on the row.
@@ -304,16 +324,23 @@ activity to this payer.
   limits a leak to one invoice, but the duplicate guard in [D1](#d1-the-same-invoice-paid-twice)
   then needs that salt to be kept and reused. [mainnet.md](deployments/mainnet.md) does not
   record which was used for the demo batch.
-- Status: **designed.** The app must pick one and store the salt where the payer keeps the
-  invoice record.
+- The app picked **one salt per batch**: `generateSalt()` runs once per CSV upload and every
+  ref in that batch uses it (`src/run/csv-parse.ts`). Before Pay is enabled the payer must
+  download the salt file and the payer CSV or tick a checkbox saying the salt is saved
+  (the salt gate in `src/run/RunPage.tsx`). The app does not store the salt anywhere else.
+- Status: **partial.** The salt is generated and the payer is made to save it. A leaked batch
+  salt exposes every invoice ID in that batch, which is the cost of choosing one salt per
+  batch.
 - Residual: the salt is a secret the payer must back up. If it is lost, the rebuild can
   still join by the ref in the CSV, but the payer cannot re-derive refs from invoice IDs.
+  The checkbox lets a payer continue without saving it.
 
 #### P3: the CSV and what the page does with it
 
 - Threat: the invoice list leaves the browser.
-- Control: designed. The CSV is read in the browser and held in memory, with no backend to
-  send it to. The CSV in `fixtures/` is demo data.
+- Control: the CSV is read in the browser and held in memory, with no backend to send it to.
+  The landing caches the last rebuilt view model (public chain data) in `localStorage`; the
+  uploaded CSV is not stored. The CSV in `fixtures/` is demo data.
 - Found while reading the code: the Studio scaffold imports `src/tracing.ts` and
   `src/console-capture.ts` from `src/main.tsx`. They patch `fetch`, `window.ethereum.request`,
   and `console`, and post the RPC parameters, HTTP request bodies, and console lines to
@@ -334,9 +361,9 @@ activity to this payer.
   the `src/tracing` and `src/console-capture` modules. A second case builds with
   `VITE_ARC_STUDIO_PREVIEW=true` and asserts the markers are present, so the first case can
   fail.
-- Status: **in place in the build and guarded by a test that builds the bundle.** Not yet
-  confirmed in a browser: there is no deployed site, and the issue
-  ([#33](https://github.com/salazarsebas/conciliado/issues/33)) still asks for that check.
+- Status: **in place in the build and guarded by a test that builds the bundle.** The site is
+  deployed now, but I did not run the browser check on it that the issue
+  ([#33](https://github.com/salazarsebas/conciliado/issues/33)) asks for.
 - Residual: a deploy that sets `VITE_ARC_STUDIO_PREVIEW=true` brings the instrumentation
   back. Never set it on the public host. Do not log CSV rows or salts in the meantime.
 
@@ -379,7 +406,10 @@ activity to this payer.
   against Circle's endpoint and against the Blockdaemon, dRPC, and QuickNode endpoints that Arc lists
   gave the same result: 6 of 6 matched, difference 0 wei. A payer who wants more than
   one source can run it twice.
-- Status: **partial.** The cross-check works by hand. The app has no second source yet.
+- Status: **partial.** The cross-check works by hand. The app has no second source: each
+  network in `src/config.ts` and `src/run/networks.ts` has one RPC URL. On 2026-11-01 the
+  Blockdaemon endpoint answered log reads with `pruned history unavailable` (code 4444), so a
+  second source for old logs is not a given.
 - Residual: a single lying endpoint is detectable only if a second one is consulted. Arc's
   own docs say the public endpoint is load-balanced across backends at slightly different
   heights, so a request can briefly see older state (error `-32014` when a backend has not
@@ -391,10 +421,15 @@ activity to this payer.
   simulate.
 - Observed: the public endpoint answered `-32005 rate limit exceeded` when I paged
   `eth_getLogs` through six ranges without a pause. `eth_getLogs` allows at most 10,000
-  blocks per call.
-- Control: paging with a pause and retries is in `scripts/check-mainnet.sh`. The rebuild
-  pages by block range already.
-- Status: **partial.** An outage stops reads, not funds. The app needs a fallback endpoint.
+  blocks per call (10,001 blocks, or a range to `latest` from the deploy block, returns
+  `requested range too large`, also with a topic filter).
+  On 2026-11-01 a sequential scan from the deploy block (217 pages) was limited at 150 ms
+  between pages, mostly fine at 300 to 400 ms, with limit streaks of up to six retries, and a
+  JSON-RPC batch of ten pages was limited too because each call counts.
+- Control: paging with a pause and retries with growing waits is in
+  `scripts/check-mainnet.sh` and in `src/metrics/load.ts`. If a page still fails, `/metrics`
+  shows an error and no figures. The rebuild pages by block range already.
+- Status: **partial.** An outage stops reads, not funds. The app has no fallback endpoint.
 - Residual: during an outage the payer should not send a batch they could not simulate.
 
 ### People: payees and phishing
@@ -439,9 +474,9 @@ activity to this payer.
   included transaction that reverts on a blocklist check still consumes gas. One page of
   the docs also says such reverts leave no receipt. I have not reproduced this (no
   transactions).
-- Control: the batch is atomic, so no partial payment exists. The app is designed to simulate
-  first and show the revert reason before anything is sent; the payer then fixes the CSV and
-  rebuilds the batch. Whether `eth_call` reproduces a blocklist revert is expected, not
+- Control: the batch is atomic, so no partial payment exists. The app simulates first and
+  decodes the revert reason into a sentence ending in "No USDC moved." before anything is
+  sent (`src/run/simulate.ts`); the payer then fixes the CSV and uploads it again. Whether `eth_call` reproduces a blocklist revert is expected, not
   verified.
 - The USDC interface answers `isBlacklisted(address)` for the payer and the six payees with
   `false`. I have not seen it return `true`, so I cannot say it matches the blocklist the
@@ -469,7 +504,8 @@ activity to this payer.
 - Dependencies are installed with `bun install --frozen-lockfile`. The scaffold lists several
   Circle SDK packages that nothing in `src/` imports, and one script imports a package that
   is not on the public registry ([#27](https://github.com/salazarsebas/conciliado/issues/27)).
-  Unused dependencies are surface that does not need to be there.
+  Unused dependencies are surface that does not need to be there. The `/metrics` page adds no
+  dependency.
 - Status: **partial.**
 - Residual: a bad version of a dependency would reach the browser bundle. Pin versions with
   the lockfile, remove the unused packages when the app is built, and review lockfile changes.
@@ -488,7 +524,8 @@ activity to this payer.
    the invoice IDs that used it.
 5. One blocklisted payee stops a whole batch.
 6. Reads depend on one public RPC. A second endpoint is a manual check today.
-7. The app, which holds most of the planned controls, does not exist yet.
+7. The app exists, but it has no content security policy or frame-ancestors header, no
+   second RPC source, and a salt checkbox that lets a payer skip saving the salt.
 
 ## 6. Open items
 
@@ -497,9 +534,10 @@ activity to this payer.
 | `threat-modeler` review and sign-off | Pending, before the public flip |
 | Test for `MAX_LINES` and a 200-line simulation | Done ([#31](https://github.com/salazarsebas/conciliado/issues/31)): 200 lines succeed at 8,661,135 gas (one payee), 201 revert with `BatchTooLarge`; a 200-distinct-payee run is open |
 | Join local invoices to chain lines by payee and amount, not ref alone | Done in the rebuild ([#32](https://github.com/salazarsebas/conciliado/issues/32)); the pre-send check is still app work |
-| Choose one salt per invoice or per batch, and store it | App (#12 to #15) |
-| Remove or gate `tracing.ts` and `console-capture.ts` in the production build | Gated and covered by a bundle test ([#33](https://github.com/salazarsebas/conciliado/issues/33)); the browser check on a deployed site is open |
-| Fixed mainnet chain id and contract address, CSP, frame-ancestors none | App deploy |
+| Choose one salt per invoice or per batch, and store it | One per batch, saved by the payer through the salt gate in `/run`; a fresh salt per upload means a re-uploaded CSV is not caught by the contract |
+| Remove or gate `tracing.ts` and `console-capture.ts` in the production build | Gated and covered by a bundle test ([#33](https://github.com/salazarsebas/conciliado/issues/33)); the browser check on the deployed site is open |
+| Fixed mainnet chain id and contract address | Done in the build (`src/run/networks.ts`) |
+| CSP and frame-ancestors none | Open: `vercel.json` sets no headers |
 | Explorer source verification | Done, [fully verified](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract) |
 | Paid third-party audit | Not scheduled |
 

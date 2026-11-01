@@ -10,7 +10,7 @@ RPC="${RPC_URL:-https://rpc.mainnet.arc.io}"
 CONTRACT=0xC86e2241166785344E4d6692E4D2A3D4c8466d0e
 PAYER=0x429Fd794Ed2166c0F6fFef39fA6A1F580Ba64364
 DEPLOY_BLOCK=26689148
-EXPECTED_NONCE="${EXPECTED_NONCE:-4}"
+EXPECTED_NONCE="${EXPECTED_NONCE:-5}"   # deploy, addPayees, first batch, spike deploy, app batch
 EXPECTED_ALLOWED="${EXPECTED_ALLOWED:-6}"   # PayeeAdded minus PayeeRemoved for the payer
 EXPECTED_CODEHASH=0x6aa81ec65c8a13dc19048ac2d34ca9b8270a7de2a1a13cb0f6ec04adbb4d7932
 WARN_BALANCE_WEI="${WARN_BALANCE_WEI:-1000000000000000000}"   # 1 USDC
@@ -68,18 +68,21 @@ cbal=$(cast balance "$CONTRACT" --rpc-url "$RPC")
 hash=$(cast keccak "$(cast code "$CONTRACT" --rpc-url "$RPC")")
 [ "$hash" = "$EXPECTED_CODEHASH" ] && say OK "runtime code hash unchanged" || say PAGE "runtime code hash is $hash"
 
-# eth_getLogs allows at most 10000 blocks per call, so page in 9999-block steps and
-# pause between pages: the public endpoint answered -32005 (rate limit) without a pause.
+# eth_getLogs allows at most 10000 blocks per call ("requested range too large" above that),
+# so page in 9999-block steps. The public endpoint answers -32005 (rate limit) when pages
+# come faster than about two a second, and a penalty can last several seconds: pause 0.4 s
+# between pages and retry a limited page with waits of 1, 2, 4, 8, and 8 seconds. From the
+# deploy block to the head this is a few hundred pages, so expect minutes, not seconds.
 from=$DEPLOY_BLOCK
 logs=""
 while [ "$from" -le "$head" ]; do
   to=$((from + 9998)); [ "$to" -gt "$head" ] && to=$head
   filter="{\"address\":\"$CONTRACT\",\"fromBlock\":\"$(printf '0x%x' "$from")\",\"toBlock\":\"$(printf '0x%x' "$to")\"}"
   page=""
-  for _ in 1 2 3; do
+  for wait in 1 2 4 8 8 0; do
     page=$(rpc eth_getLogs "[$filter]")
     echo "$page" | jq -e '.result' >/dev/null 2>&1 && break
-    sleep 2
+    sleep "$wait"
   done
   if ! echo "$page" | jq -e '.result' >/dev/null 2>&1; then
     say PAGE "eth_getLogs failed for blocks $from-$to: $(echo "$page" | head -c 120)"
@@ -87,7 +90,7 @@ while [ "$from" -le "$head" ]; do
   fi
   logs="$logs$(echo "$page" | jq -c '.result[]')"$'\n'
   from=$((to + 1))
-  sleep 1
+  sleep 0.4
 done
 
 payer_topic="0x$(cast to-uint256 "$PAYER" | sed 's/^0x//')"

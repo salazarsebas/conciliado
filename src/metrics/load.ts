@@ -6,7 +6,8 @@
  *
  * eth_getLogs on https://rpc.mainnet.arc.io answers "requested range too large" above
  * 10,000 blocks per call, so the scan from the deploy block is paged. The same endpoint
- * rate limits (-32005) when pages are sent faster than about three a second, and a
+ * rate limits (-32005) when pages are sent faster than about two a second, in runs that
+ * need up to 30 seconds of waiting to clear, and a
  * JSON-RPC batch does not help because every call in it counts. Pages are therefore
  * sent one at a time with a short gap, and a limited page is retried with a growing wait.
  * Any page that still fails ends the whole load: partial logs would give wrong totals.
@@ -45,8 +46,15 @@ export interface FetchOptions {
   gapMs?: number;
   /** Tries per page, the first one included. */
   attempts?: number;
-  /** First retry wait in ms; it doubles on each retry. */
+  /** First retry wait in ms; it doubles on each retry up to retryMaxMs. */
   retryBaseMs?: number;
+  retryMaxMs?: number;
+  /**
+   * Pages already read, keyed "from-to". A page that ends before the head is final (Arc has
+   * deterministic finality), so a retry or a second read in the same session skips it.
+   * The map is filled as pages arrive, so a failed read keeps what it got.
+   */
+  cache?: Map<string, readonly Log[]>;
   onProgress?: (done: number, total: number) => void;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -66,9 +74,11 @@ export async function fetchLogsPaged(
   toBlock: bigint,
   {
     pageSize = 10_000n,
-    gapMs = 300,
-    attempts = 6,
-    retryBaseMs = 400,
+    gapMs = 400,
+    attempts = 12,
+    retryBaseMs = 1_000,
+    retryMaxMs = 8_000,
+    cache,
     onProgress,
     sleep = defaultSleep,
   }: FetchOptions = {},
@@ -78,6 +88,13 @@ export async function fetchLogsPaged(
   onProgress?.(0, ranges.length);
 
   for (const [i, range] of ranges.entries()) {
+    const key = `${range.from}-${range.to}`;
+    const cached = range.to < toBlock ? cache?.get(key) : undefined;
+    if (cached) {
+      all.push(...cached);
+      onProgress?.(i + 1, ranges.length);
+      continue;
+    }
     let page: Log[] | null = null;
     let lastError: unknown = null;
     for (let attempt = 0; attempt < attempts && page === null; attempt++) {
@@ -85,7 +102,7 @@ export async function fetchLogsPaged(
         page = [...(await client.getLogs({ address, fromBlock: range.from, toBlock: range.to }))];
       } catch (err: unknown) {
         lastError = err;
-        if (attempt < attempts - 1) await sleep(retryBaseMs * 2 ** attempt);
+        if (attempt < attempts - 1) await sleep(Math.min(retryBaseMs * 2 ** attempt, retryMaxMs));
       }
     }
     if (page === null) {
@@ -93,6 +110,7 @@ export async function fetchLogsPaged(
       throw new Error(`eth_getLogs failed for blocks ${range.from}-${range.to}: ${reason}`);
     }
     all.push(...page);
+    if (range.to < toBlock) cache?.set(key, page);
     onProgress?.(i + 1, ranges.length);
     if (i < ranges.length - 1 && gapMs > 0) await sleep(gapMs);
   }
@@ -123,6 +141,8 @@ export interface LoadArgs {
   deployBlock: bigint;
   onPhase?: (phase: LoadPhase) => void;
   fetchOptions?: FetchOptions;
+  /** Pages kept between reads in one session; see FetchOptions.cache. */
+  logCache?: Map<string, readonly Log[]>;
 }
 
 export async function loadMetrics({
@@ -132,11 +152,13 @@ export async function loadMetrics({
   deployBlock,
   onPhase,
   fetchOptions,
+  logCache,
 }: LoadArgs): Promise<MetricsSnapshot> {
   const headBlock = await client.getBlockNumber();
   let pages = 0;
   const logs = await fetchLogsPaged(client, contract, deployBlock, headBlock, {
     ...fetchOptions,
+    cache: logCache,
     onProgress: (done, total) => {
       pages = total;
       onPhase?.({ kind: 'logs', done, total });

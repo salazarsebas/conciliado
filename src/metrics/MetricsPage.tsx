@@ -205,8 +205,8 @@ export default function MetricsPage() {
             )}
             <p className="text-sm tabular text-ink-subtle mt-2">{formatDuration(state.elapsedMs)}</p>
             <p className="text-xs text-ink-subtle mt-2 max-w-reading">
-              The public RPC limits log reads to 10,000 blocks and a few calls a second, so the first
-              read takes about two minutes.
+              The public RPC limits log reads to 10,000 blocks and a few calls a second, so a full
+              read takes about three minutes.
             </p>
           </div>
         )}

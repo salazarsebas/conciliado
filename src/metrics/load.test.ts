@@ -64,6 +64,24 @@ test('a rate limited page is retried with a growing wait and then succeeds', asy
   expect(waits).toEqual([100, 200]);
 });
 
+test('the retry wait is capped', async () => {
+  let failures = 5;
+  const waits: number[] = [];
+  const client = {
+    getLogs: async () => {
+      if (failures-- > 0) throw new Error('rate limit exceeded');
+      return [];
+    },
+  };
+  await fetchLogsPaged(client, ADDR, 0n, 5n, {
+    gapMs: 0,
+    retryBaseMs: 1_000,
+    retryMaxMs: 3_000,
+    sleep: async (ms) => { waits.push(ms); },
+  });
+  expect(waits).toEqual([1_000, 2_000, 3_000, 3_000, 3_000]);
+});
+
 test('a page that keeps failing fails the whole read, with no partial logs', async () => {
   let call = 0;
   const client = {
@@ -77,4 +95,41 @@ test('a page that keeps failing fails the whole read, with no partial logs', asy
     fetchLogsPaged(client, ADDR, 0n, 19_999n, { gapMs: 0, attempts: 3, sleep: noSleep }),
   ).rejects.toThrow('eth_getLogs failed for blocks 10000-19999: rate limit exceeded');
   expect(call).toBe(4);
+});
+
+test('pages kept in the cache are not read again, and the last page is always read', async () => {
+  const cache = new Map<string, readonly Log[]>();
+  let calls = 0;
+  const client = {
+    getLogs: async (a: { fromBlock: bigint; toBlock: bigint }) => {
+      calls++;
+      return [{ blockNumber: a.fromBlock } as Log];
+    },
+  };
+  const opts = { gapMs: 0, sleep: noSleep, cache };
+  await fetchLogsPaged(client, ADDR, 0n, 24_999n, opts);
+  expect(calls).toBe(3);
+  // Same range again: the two full pages are cached, the page that ends at the head is not.
+  const logs = await fetchLogsPaged(client, ADDR, 0n, 24_999n, opts);
+  expect(calls).toBe(4);
+  expect(logs.length).toBe(3);
+  // A higher head: the old last page is now a full page range of its own key, so it is read once.
+  await fetchLogsPaged(client, ADDR, 0n, 34_999n, opts);
+  expect(calls).toBe(6);
+});
+
+test('a failed read keeps the pages it already got', async () => {
+  const cache = new Map<string, readonly Log[]>();
+  let call = 0;
+  const client = {
+    getLogs: async () => {
+      call++;
+      if (call === 1) return [{ blockNumber: 1n } as Log];
+      throw new Error('rate limit exceeded');
+    },
+  };
+  await expect(
+    fetchLogsPaged(client, ADDR, 0n, 19_999n, { gapMs: 0, attempts: 2, sleep: noSleep, cache }),
+  ).rejects.toThrow('rate limit exceeded');
+  expect([...cache.keys()]).toEqual(['0-9999']);
 });
