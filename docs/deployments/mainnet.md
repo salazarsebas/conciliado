@@ -6,7 +6,7 @@ Issue: #8. Run on 2026-10-19 (UTC) against Arc mainnet, chain 5042, RPC
 `PayoutBatch` was deployed from `contracts/PayoutBatch.sol` on `main`, unchanged from the
 Studio pull, with Arc Foundry (`arc-forge` forge 1.7.1-dev), constructor argument USDC
 `0x3600000000000000000000000000000000000000`. The tests pass first (`arc-forge test`: 22
-passed, 0 failed). Then one batch of 6 invoice lines was paid on mainnet.
+passed, 0 failed, at deploy time; the suite has 25 today). Then one batch of 6 invoice lines was paid on mainnet.
 
 ## Contract
 
