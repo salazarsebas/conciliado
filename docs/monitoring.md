@@ -71,6 +71,9 @@ OK    allow-list events: 6 added, 0 removed
 INFO  since block 26689148: 1 batches, 6 lines, 195000 USDC units paid (6 decimals)
 ```
 
+On 2026-11-01, after the app batch, the same script reported nonce 5 and 2 batches, 12 lines,
+390000 USDC units. Its scan grows with the chain, so it now takes minutes rather than seconds.
+
 It takes about 8 seconds, almost all of it the pauses between `eth_getLogs` pages. With the
 thresholds forced to trip (`EXPECTED_NONCE=5 EXPECTED_ALLOWED=7 PAGE_BALANCE_WEI=6000000000000000000
 MAX_HEAD_AGE_S=-1`) it printed four `PAGE` lines and exited 1. With an unreachable

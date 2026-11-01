@@ -18,7 +18,7 @@ Upload a CSV of invoices. Review each line, simulate the batch, and pay it in on
 
 **Working product (25%).** The [live app](https://conciliado.acachete.xyz) runs the rebuild with no wallet, and `/run` handles CSV review, simulation, and payment. An end-to-end test runs the demo path against the live deploy, and [`/metrics`](https://conciliado.acachete.xyz/metrics) reads every batch from the chain. The app and Foundry suites pass; the README has the commands.
 
-**Potential to go further (20%).** [Any batch rebuilds from its tx hash alone](https://conciliado.acachete.xyz/?tx=0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665&network=mainnet), so an auditor needs no access to our systems. That fits the payroll and scheduled payouts Arc lists as starting points. Next steps: a CSV export of the rebuilt ledger, a measured 200-line batch with distinct payees, and recurring batches.
+**Potential to go further (20%).** [Any batch's payments, fee, and tie-out rebuild from its tx hash](https://conciliado.acachete.xyz/?tx=0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665&network=mainnet), so an auditor needs no access to our systems. Matching invoice IDs takes the payer's CSV. That fits the payroll and scheduled payouts Arc lists as starting points. Next steps: a CSV export of the rebuilt ledger, a measured 200-line batch with distinct payees, and recurring batches.
 
 ## How it works
 
@@ -30,3 +30,7 @@ Upload a CSV of invoices. Review each line, simulate the batch, and pay it in on
 - Repo: https://github.com/salazarsebas/conciliado
 - Video: https://youtu.be/NrJMAVy_LsI
 - Builder: https://github.com/salazarsebas
+
+## Current limits
+
+Two batches, one payer, six payees made for the demo, no external users yet.

@@ -1,25 +1,33 @@
 # AGENTS.md
 
-How an agent should work in this submission repo.
+Conciliado pays a batch of contractor invoices in USDC on Arc mainnet (chain 5042) in one
+transaction, then rebuilds the ledger from the chain and ties it to the payer's balance
+change. It is a static client with no server, no database, and no server-held key.
 
-1. Read the README. Use the live URL. Do not assume local-only.
-2. Demo path: follow `docs/demo-script.md` if present, else the README demo section.
-3. Tests: unit, functional, E2E for the demo path. The demo path without E2E is not done.
-4. Diagrams: Graphviz under `diagrams/generator/`, Markdown twins under `docs/diagrams/`.
-5. Deploy split is documented in the README (mainnet / testnet / off-chain).
-6. Ship standards live in `docs/standards/`. Auditors load from there.
-7. Ship auditors (`ship-auditor`, `deploy-auditor`, `agent-ready-auditor`,
-   `threat-modeler`, `design-auditor`, `pitch-reviewer`) exist as matching subagents in both
-   `.claude/agents/` and `.grok/agents/`. Run the set that matches the
-   harness you are in; both read the same standards.
-8. Do not commit secrets. Do not cite private pack URLs.
-9. Issue work is driven from the profile repo with `/working-hack` (Grok:
-   the `working-hack` skill), not from a copy of that command in this repo.
-   It picks every unblocked open issue, starts at once, and runs one
-   `issue-worker` per issue in parallel across independent lanes, each on
-   its own branch and pull request. `--plan` stops for approval.
-10. The countdown dates on the event record rule every turn: after
-   `feature_freeze`, no new behavior. The video and write-up follow
-   `docs/standards/submission.md`.
+## Start here
 
-Brand, threat model, monitoring, metrics, and performance docs live under `docs/`.
+- Live app: https://conciliado.acachete.xyz
+- Summary for machines: https://conciliado.acachete.xyz/llms.txt
+- Evidence by judging axis: [docs/submission.md](docs/submission.md)
+- Addresses and transactions: [docs/deployments/mainnet.md](docs/deployments/mainnet.md)
+
+## Verify it
+
+None of these sends a transaction or needs a key.
+
+```bash
+bun install --frozen-lockfile
+bun run test             # app tests, offline
+arc-forge test           # contract tests, needs Arc Foundry (see README)
+bun run ledger:rebuild   # rebuilds the first mainnet batch and exits 1 unless it ties out
+bun run test:e2e         # demo path; set E2E_BASE_URL to test a deployed URL
+```
+
+`bash scripts/check-mainnet.sh` reports the contract's health and usage from the chain.
+
+## Rules for changes
+
+- Never commit secrets, private keys, or salts.
+- Mainnet transactions are signed by the payer's wallet. Do not send one from automation.
+- Every figure in the docs must be read from the chain or measured.
+- Diagrams are generated from `diagrams/generator/`, with Markdown twins in `docs/diagrams/`.

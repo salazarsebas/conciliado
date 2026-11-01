@@ -12,7 +12,7 @@ first with `addPayees`.
 ```mermaid
 flowchart TB
   subgraph pay["1. Pay: off-chain client"]
-    upload["CSV upload: invoice ID, payee, amount, salt per row"]
+    upload["CSV upload: invoice ID, payee, amount per row"]
     validate["Validate per row: address, amount above zero, no duplicate ref, payee allow-listed, ref unused"]
     simulate["Simulate: eth_call of payBatch against Arc RPC, revert reason shown, nothing sent"]
     sign["Sign one tx: approve + payBatch via Multicall3From"]
