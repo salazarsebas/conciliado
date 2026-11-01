@@ -13,6 +13,14 @@ function trackPageErrors(page: Page): string[] {
 }
 
 test.describe('landing: rebuild from chain', () => {
+  test('a batch opened by tx hash ties out and shows no false mismatch', async ({ page }) => {
+    await page.goto('/?tx=0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665&network=mainnet');
+    const tied = page.getByText('Ties out. Difference 0 wei.', { exact: true });
+    await tied.waitFor({ timeout: REBUILD_TIMEOUT_MS });
+    await expect(page.getByText('Not matched')).toHaveCount(0);
+    await expect(page.getByText('6 payments read from the chain. Invoice IDs stay with the payer.', { exact: true })).toBeVisible();
+  });
+
   test('rebuilds 6 of 6 matched, ties out, and links the batch on explorer.arc.io', async ({ page }) => {
     const errors = trackPageErrors(page);
 
