@@ -9,13 +9,13 @@ import logoMarkInverse from '../../docs/brand/logo-mark-inverse.svg';
 import {
   formatBlockNumber,
   formatDuration,
-  formatFeeFullUsdc,
   formatMicro6,
   formatNativeAsMicro,
   formatUtc,
   truncateAddress,
   truncateHash,
 } from '../landing/format.js';
+import { formatUsdc9 } from './format.js';
 import type { BatchRow, MetricsSummary } from './aggregate.js';
 import { CONTRACT_ADDRESS, DEPLOY_BLOCK, EXPLORER_BASE } from './config.js';
 import type { LoadPhase } from './load.js';
@@ -65,10 +65,6 @@ function TieOut({ row }: { row: BatchRow }) {
   );
 }
 
-function feeText(fee: bigint | null): string {
-  return fee === null ? 'Not read' : formatFeeFullUsdc(fee);
-}
-
 function BatchTable({ rows }: { rows: BatchRow[] }) {
   return (
     <>
@@ -100,7 +96,7 @@ function BatchTable({ rows }: { rows: BatchRow[] }) {
                 <td className="px-4 py-3 text-right tabular">{r.lineCount}</td>
                 <td className="px-4 py-3 text-right tabular">{formatMicro6(r.totalMicro)}</td>
                 <td className="px-4 py-3 text-right tabular">
-                  {r.feePerLineNative18 === null ? 'Not read' : formatFeeFullUsdc(r.feePerLineNative18).replace(' USDC', '')}
+                  {r.feePerLineNative18 === null ? 'Not read' : formatUsdc9(r.feePerLineNative18)}
                 </td>
                 <td className="px-4 py-3"><TieOut row={r} /></td>
                 <td className="px-4 py-3 font-mono">
@@ -123,7 +119,7 @@ function BatchTable({ rows }: { rows: BatchRow[] }) {
               {r.lineCount} lines, {formatMicro6(r.totalMicro)} USDC
             </p>
             <p className="text-ink-muted tabular">
-              Fee per line {r.feePerLineNative18 === null ? 'not read' : formatFeeFullUsdc(r.feePerLineNative18)}
+              Fee per line {r.feePerLineNative18 === null ? 'not read' : `${formatUsdc9(r.feePerLineNative18)} USDC`}
             </p>
             <p className="mt-1"><TieOut row={r} /></p>
             <p className="font-mono mt-1">
@@ -149,8 +145,8 @@ function Figures({ summary, balance }: { summary: MetricsSummary; balance: bigin
       <Stat label="Distinct payees" value={String(summary.distinctPayees)} />
       <Stat
         label="Fee per line"
-        value={summary.feePerLineNative18 === null ? 'Not read' : formatFeeFullUsdc(summary.feePerLineNative18)}
-        note="Network fee of every batch transaction, divided by every line"
+        value={summary.feePerLineNative18 === null ? 'Not read' : `${formatUsdc9(summary.feePerLineNative18)} USDC`}
+        note="Network fee of every batch transaction, divided by every line, rounded to nine decimals"
       />
       <Stat
         label="Contract balance"
