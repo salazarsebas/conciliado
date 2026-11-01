@@ -21,7 +21,7 @@ export default function App() {
   if (path === '/run' || path === '/run/') {
     return (
       <Suspense fallback={
-        <div className="min-h-dvh bg-paper flex items-center justify-center text-ink-subtle text-sm">
+        <div className="flex-1 bg-paper flex items-center justify-center text-ink-subtle text-sm">
           Loading…
         </div>
       }>

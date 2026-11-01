@@ -7,6 +7,23 @@
   box-sizing: border-box;
 }
 
+/* The app sits in a flex column so the footer (the Arc Studio link) follows the
+   page instead of floating over it on a phone. */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+@layer base {
+  /* Tailwind's focus-visible:outline-2 only sets the width, so give every control a
+     solid outline in the focus token instead of leaning on the browser default. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-focus));
+    outline-offset: 2px;
+  }
+}
+
 body {
   margin: 0;
   min-height: 100dvh;

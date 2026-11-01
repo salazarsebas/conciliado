@@ -30,6 +30,7 @@ import { LedgerTable } from '../landing/components/LedgerTable.js';
 import { TieOutBar } from '../landing/components/TieOutBar.js';
 import { StatusPill } from '../landing/components/StatusPill.js';
 import { formatDuration, truncateHash } from '../landing/format.js';
+import { announceFlow } from './announce.js';
 
 // ─── Viem chain definitions matching the run networks ────────────────────────
 
@@ -72,7 +73,7 @@ function NetworkSelector({
   return (
     <fieldset>
       <legend className="sr-only">Select network</legend>
-      <div className="flex gap-2" role="radiogroup" aria-label="Network">
+      <div className="flex flex-wrap gap-2">
         {(['mainnet', 'testnet'] as NetworkKey[]).map((key) => {
           const net = NETWORKS[key];
           const checked = selected === key;
@@ -81,10 +82,10 @@ function NetworkSelector({
               key={key}
               className={[
                 'flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer min-h-touch select-none transition-colors duration-fast',
-                'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus',
+                'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus',
                 checked
-                  ? 'border-accent bg-accent/10'
-                  : 'border-line bg-surface hover:bg-sunken',
+                  ? 'border-accent bg-accent-wash'
+                  : 'border-line-strong bg-surface hover:bg-sunken',
               ].join(' ')}
             >
               <input
@@ -95,6 +96,21 @@ function NetworkSelector({
                 onChange={() => onChange(key)}
                 className="sr-only"
               />
+              {/* The selected option carries a check as well as the color change. */}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className={checked ? 'text-accent' : 'invisible'}
+              >
+                <polyline points="2,7 5.5,10.5 12,3" />
+              </svg>
               <NetworkBadge network={net} />
             </label>
           );
@@ -136,10 +152,10 @@ function CsvUpload({ onFile }: { onFile: (text: string) => void }) {
         type="file"
         accept=".csv,text/csv"
         onChange={handleChange}
-        className="block w-full text-sm text-ink file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-accent-ink hover:file:bg-accent-hover cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-        aria-label="Upload invoice CSV"
+        className="block w-full text-sm text-ink file:mr-3 file:min-h-touch file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-accent-ink hover:file:bg-accent-hover file:cursor-pointer cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        aria-describedby="csv-hint"
       />
-      <p className="mt-1 text-xs text-ink-subtle">
+      <p id="csv-hint" className="mt-1 text-xs text-ink-subtle">
         Columns: invoiceId, payee, amount (decimal USDC), costCenter (optional)
       </p>
     </div>
@@ -156,6 +172,15 @@ function ReviewTable({ state }: { state: FlowState }) {
   const total = rows.reduce((s, r) => s + r.amountMicro, 0n);
   const totalDisplay = (Number(total) / 1e6).toFixed(6);
 
+  const allowStatus = (row: FlowState['rows'][number], ref: string | undefined) => {
+    const isUnallowed = unallowedSet.has(row.payee.toLowerCase());
+    const isUsedRef = ref && usedRefSet.has(ref.toLowerCase());
+    if (isUsedRef) return <span className="text-xs text-danger">Already paid</span>;
+    if (!payer) return <span className="text-xs text-ink-subtle">Connect wallet to check</span>;
+    if (isUnallowed) return <span className="text-xs text-pending">Not allowed</span>;
+    return <span className="text-xs text-final">Allowed</span>;
+  };
+
   return (
     <div>
       {/* Privacy notice — always visible on the review screen */}
@@ -164,8 +189,10 @@ function ReviewTable({ state }: { state: FlowState }) {
         for each invoice; invoice IDs and cost centers stay in this browser.
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-line bg-surface shadow-raised">
+      {/* Table from md up, stacked cards below, so a phone never scrolls sideways. */}
+      <div className="hidden md:block overflow-x-auto rounded-md border border-line bg-surface shadow-raised">
         <table className="w-full text-sm">
+          <caption className="sr-only">Batch lines to review before paying</caption>
           <thead>
             <tr className="bg-sunken text-ink-muted">
               <th scope="col" className="px-3 py-2 text-left font-medium">#</th>
@@ -180,8 +207,6 @@ function ReviewTable({ state }: { state: FlowState }) {
           <tbody>
             {rows.map((row, i) => {
               const ref = refs?.[i];
-              const isUnallowed = unallowedSet.has(row.payee.toLowerCase());
-              const isUsedRef = ref && usedRefSet.has(ref.toLowerCase());
               return (
                 <tr key={row.rowNum} className="border-t border-line hover:bg-sunken/50 transition-colors">
                   <td className="px-3 py-2 tabular text-ink-muted">{row.rowNum}</td>
@@ -192,17 +217,7 @@ function ReviewTable({ state }: { state: FlowState }) {
                   <td className="px-3 py-2 font-mono text-xs text-ink-subtle">
                     {ref ? <span title={ref}>{truncateHash(ref)}</span> : <span className="text-ink-subtle italic">pending</span>}
                   </td>
-                  <td className="px-3 py-2">
-                    {isUsedRef ? (
-                      <span className="text-xs text-danger">Already paid</span>
-                    ) : !payer ? (
-                      <span className="text-xs text-ink-subtle">Connect wallet to check</span>
-                    ) : isUnallowed ? (
-                      <span className="text-xs text-pending">Not allowed</span>
-                    ) : (
-                      <span className="text-xs text-final">Allowed</span>
-                    )}
-                  </td>
+                  <td className="px-3 py-2">{allowStatus(row, ref)}</td>
                 </tr>
               );
             })}
@@ -220,6 +235,33 @@ function ReviewTable({ state }: { state: FlowState }) {
           </tfoot>
         </table>
       </div>
+
+      <ul className="md:hidden flex flex-col gap-2" aria-label="Batch lines to review before paying">
+        {rows.map((row, i) => {
+          const ref = refs?.[i];
+          return (
+            <li key={row.rowNum} className="bg-surface rounded-lg border border-line p-4 shadow-raised">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <span className="font-mono text-sm text-ink break-all">{row.rowNum}. {row.invoiceId}</span>
+                <span className="tabular text-sm font-medium text-right shrink-0">{row.amountDisplay} USDC</span>
+              </div>
+              <div className="font-mono text-xs text-ink mb-1">{row.payee.slice(0, 6)}&hellip;{row.payee.slice(-4)}</div>
+              <div className="font-mono text-xs text-ink-subtle mb-1">Raw units {row.amountMicro.toString()}</div>
+              <div className="font-mono text-xs text-ink-subtle mb-2">
+                {ref ? <span title={ref}>{truncateHash(ref)}</span> : <span className="italic">pending</span>}
+              </div>
+              <div>{allowStatus(row, ref)}</div>
+            </li>
+          );
+        })}
+        <li className="bg-surface rounded-lg border-2 border-line-strong p-4 font-semibold">
+          <div className="flex justify-between gap-2">
+            <span>{rows.length} line{rows.length !== 1 ? 's' : ''}</span>
+            <span className="tabular">{totalDisplay} USDC</span>
+          </div>
+          <div className="font-mono text-xs font-normal text-ink-subtle mt-1">Raw units {total.toString()}</div>
+        </li>
+      </ul>
     </div>
   );
 }
@@ -263,13 +305,12 @@ function SaltGatePanel({
           Download salt file
         </button>
       </div>
-      <label className="flex items-start gap-2 cursor-pointer">
+      <label className="flex items-center gap-3 min-h-touch cursor-pointer">
         <input
           type="checkbox"
           checked={gateCleared}
           onChange={(e) => { if (e.target.checked) onGateCleared(); }}
-          className="mt-0.5 h-4 w-4 rounded border-line text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          aria-label="I saved the salt and the payer CSV"
+          className="h-5 w-5 shrink-0 accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         />
         <span className="text-sm text-ink">I saved the salt and the payer CSV</span>
       </label>
@@ -378,12 +419,20 @@ export function RunPage() {
     );
   }, [flowState, isConnected, isWrongChain, saltGateCleared]);
 
+  const announcement = announceFlow(flowState);
+
   return (
-    <div className="min-h-dvh bg-paper text-ink font-sans">
+    <div className="flex-1 bg-paper text-ink font-sans">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:inline-flex focus:items-center focus:min-h-touch focus:px-5 focus:rounded-md focus:bg-surface focus:text-ink focus:border focus:border-line-strong focus:shadow-overlay text-base font-semibold"
+      >
+        Skip to main content
+      </a>
       {/* Header */}
       <header className="border-b border-line bg-surface">
-        <div className="max-w-content mx-auto px-4 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="max-w-content mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <div className="flex items-center gap-3 flex-1 basis-40 min-w-0">
             <picture className="shrink-0">
               <source srcSet={logoMarkInverse} media="(prefers-color-scheme: dark)" />
               <img src={logoMark} alt="" aria-hidden="true" width={28} height={28} />
@@ -393,14 +442,14 @@ export function RunPage() {
           <NetworkBadge network={network} />
           <a
             href="/"
-            className="text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
+            className="inline-flex items-center min-h-touch text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded whitespace-nowrap"
           >
             Back to ledger
           </a>
         </div>
       </header>
 
-      <main className="max-w-content mx-auto px-4 lg:px-8 py-8 pb-16">
+      <main id="main" tabIndex={-1} className="max-w-content mx-auto px-4 lg:px-8 py-8 pb-16 focus:outline-none">
         <h1 className="text-2xl md:text-3xl font-bold text-ink tracking-tight mb-2">Run a batch</h1>
         <p className="text-sm text-ink-muted mb-8 max-w-reading">
           Upload an invoice CSV, review the lines, and pay in one transaction. The ledger is rebuilt from the chain immediately after.
@@ -448,7 +497,18 @@ export function RunPage() {
         <section className="mb-8">
           <h2 className="text-base font-semibold text-ink mb-3">3. Connect wallet</h2>
           <div className="flex flex-wrap items-center gap-3">
-            <ConnectKitButton />
+            <ConnectKitButton.Custom>
+              {({ isConnected: connected, show, truncatedAddress, ensName }) => (
+                <button
+                  type="button"
+                  onClick={show}
+                  aria-haspopup="dialog"
+                  className="min-h-touch px-5 rounded-md text-base font-semibold bg-accent text-accent-ink hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus transition-colors duration-fast"
+                >
+                  {connected ? (ensName ?? truncatedAddress) : 'Connect Wallet'}
+                </button>
+              )}
+            </ConnectKitButton.Custom>
             {isConnected && address && (
               <span className="font-mono text-xs text-ink-subtle">{truncateHash(address)}</span>
             )}
@@ -495,10 +555,10 @@ export function RunPage() {
                 <p className="text-sm text-danger mb-3">{flowState.allowError}</p>
               )}
               {flowState.allowTxHash && flowState.status === 'allowPending' && (
-                <p className="text-xs text-ink-subtle mb-2">
-                  Pending:{' '}
+                <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-subtle mb-2">
+                  Pending:
                   <a href={flowState.allowTxUrl ?? '#'} target="_blank" rel="noopener noreferrer"
-                    className="font-mono text-accent underline">{truncateHash(flowState.allowTxHash)}</a>
+                    className="inline-flex items-center min-h-touch font-mono text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded">{truncateHash(flowState.allowTxHash)}</a>
                 </p>
               )}
               <button
@@ -573,14 +633,14 @@ export function RunPage() {
             <div className="p-4 rounded-lg border border-line bg-surface shadow-raised">
               {/* Status while paying */}
               {flowState.status === 'paying' && (
-                <div role="status" aria-live="polite" className="mb-3">
+                <div className="mb-3">
                   <p className="text-sm text-ink-subtle">
                     Pending{flowState.payElapsedMs > 0 ? ` (${formatDuration(flowState.payElapsedMs)})` : ''}
                     {flowState.payTxHash && (
                       <>
                         {' '}&mdash;{' '}
                         <a href={flowState.payTxUrl ?? '#'} target="_blank" rel="noopener noreferrer"
-                          className="font-mono text-xs text-accent underline">{truncateHash(flowState.payTxHash)}</a>
+                          className="inline-flex items-center min-h-touch font-mono text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded">{truncateHash(flowState.payTxHash)}</a>
                       </>
                     )}
                   </p>
@@ -589,7 +649,7 @@ export function RunPage() {
 
               {/* Final success */}
               {flowState.status === 'paid' && flowState.payTxHash && (
-                <div role="status" aria-live="polite" className="mb-4">
+                <div className="mb-4">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <StatusPill status="final" />
                     {flowState.payDurationMs !== null && (
@@ -605,15 +665,15 @@ export function RunPage() {
                     href={flowState.payTxUrl ?? '#'}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-xs text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
+                    className="inline-flex items-center min-h-touch font-mono text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
                   >
                     {truncateHash(flowState.payTxHash)}
                   </a>
                   {flowState.payTxHash && (
-                    <p className="mt-2 text-xs text-ink-subtle">
+                    <p className="mt-2 text-sm text-ink-subtle">
                       <a
                         href={`/?tx=${flowState.payTxHash}&network=${networkKey}`}
-                        className="text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
+                        className="inline-flex items-center min-h-touch text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded"
                       >
                         Rebuild this batch from the chain
                       </a>
@@ -624,20 +684,20 @@ export function RunPage() {
 
               {/* Reverted */}
               {flowState.status === 'reverted' && (
-                <div role="status" aria-live="assertive" className="mb-4 p-3 rounded-md bg-danger-wash border border-danger/30">
+                <div className="mb-4 p-3 rounded-md bg-danger-wash border border-danger/30">
                   <p className="text-sm text-danger font-medium">
                     The transaction reverted. The batch was not paid; only the network fee was spent.
                   </p>
                   {flowState.payTxHash && (
                     <a href={flowState.payTxUrl ?? '#'} target="_blank" rel="noopener noreferrer"
-                      className="font-mono text-xs text-accent underline mt-1 block">{truncateHash(flowState.payTxHash)}</a>
+                      className="inline-flex items-center min-h-touch font-mono text-sm text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded mt-1">{truncateHash(flowState.payTxHash)}</a>
                   )}
                 </div>
               )}
 
               {/* Rejected */}
               {flowState.status === 'rejected' && (
-                <div role="status" aria-live="assertive" className="mb-4 p-3 rounded-md bg-danger-wash border border-danger/30">
+                <div className="mb-4 p-3 rounded-md bg-danger-wash border border-danger/30">
                   <p className="text-sm text-danger">You rejected the transaction. No USDC moved.</p>
                 </div>
               )}
@@ -675,15 +735,13 @@ export function RunPage() {
           </section>
         )}
 
-        {/* Live region for screen reader */}
+        {/* Live regions for screen readers. Always mounted so the text is announced
+            when it changes. The status region is polite, the alert region is assertive. */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-          {flowState.status === 'paid' && flowState.rebuildVm
-            ? `Batch paid. ${flowState.rebuildVm.matchSummary}. ${flowState.rebuildVm.tieOut?.resultWord ?? ''}`
-            : flowState.status === 'reverted'
-            ? 'Transaction reverted. Batch was not paid.'
-            : flowState.status === 'rejected'
-            ? 'Transaction rejected. No USDC moved.'
-            : ''}
+          {announcement.status}
+        </div>
+        <div role="alert" aria-live="assertive" aria-atomic="true" className="sr-only">
+          {announcement.alert}
         </div>
       </main>
     </div>

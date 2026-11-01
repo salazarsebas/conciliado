@@ -114,7 +114,7 @@ export function LedgerTable({ vm }: Props) {
                 <td className="px-4 py-3 text-ink-muted"><span className="sr-only">No invoice</span></td>
                 <td className="px-4 py-3 text-ink-muted italic">Network fee</td>
                 <td className="px-4 py-3 text-ink-muted text-xs">
-                  <a href={vm.feeRow.txUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+                  <a href={vm.feeRow.txUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-touch text-accent hover:text-accent-hover underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus rounded">
                     {truncateHash(vm.txHash ?? '')}
                   </a>
                 </td>
