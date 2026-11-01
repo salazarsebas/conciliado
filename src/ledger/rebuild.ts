@@ -35,7 +35,8 @@ import { makeInvoiceRef } from './ref.js';
 
 const ERC20_ABI = parseAbi(['function balanceOf(address) view returns (uint256)']);
 
-const PAYOUT_BATCH_ABI = parseAbi([
+/** Event ABI of PayoutBatch that the ledger and the metrics page both decode. */
+export const PAYOUT_BATCH_ABI = parseAbi([
   'event InvoicePaid(uint256 indexed batchId, uint256 lineIndex, address indexed payee, uint256 amount, bytes32 indexed invoiceRef)',
   'event BatchPaid(uint256 indexed batchId, address indexed payer, uint256 lineCount, uint256 total)',
 ]);
