@@ -466,3 +466,20 @@ test('view-model mismatch: no mismatches => matchSummary has no mismatch word', 
   expect(vm.matchSummary).toBe('6 of 6 matched');
   expect(vm.matchSummary).not.toContain('mismatch');
 });
+
+test('view-model: a batch read without an invoice list is not reported as unmatched', async () => {
+  const client = makeClient();
+  const result = await rebuildLedger({
+    client,
+    contract: CONTRACT_ADDRESS,
+    payer: PAYER_ADDRESS,
+    usdc: USDC_ADDRESS,
+    target: { txHash: BATCH_TX },
+    invoiceList: [],
+  });
+  const vm = buildViewModel(result, []);
+  expect(vm.chainOnly).toBe(true);
+  expect(vm.payoutRows.map((r) => r.matchWord)).toEqual(Array(6).fill('Reference only'));
+  expect(vm.matchSummary).toBe('6 payments read from the chain. Invoice IDs stay with the payer.');
+  expect(vm.tieOut?.resultWord).toBe('Ties out. Difference 0 wei.');
+});

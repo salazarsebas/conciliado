@@ -63,6 +63,7 @@ const MOCK_VM_READY: LedgerViewModel = {
   mismatchedCount: 0,
   invoiceCount: 6,
   matchSummary: '6 of 6 matched',
+  chainOnly: false,
   tieOut: {
     ledgerTotalDisplay: '0.206014 USDC',
     walletChangeDisplay: '0.206014 USDC',

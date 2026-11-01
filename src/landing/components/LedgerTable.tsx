@@ -55,6 +55,9 @@ function MatchIcon({ row }: { row: PayoutRowView }) {
       </div>
     );
   }
+  if (row.matchWord === 'Reference only') {
+    return <span className="text-ink-subtle text-sm">Reference only</span>;
+  }
   return (
     <span className="inline-flex items-center gap-1 text-danger text-sm">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -93,7 +96,7 @@ export function LedgerTable({ vm }: Props) {
                 ].join(' ')}
               >
                 <td className="px-4 py-3 tabular text-ink-muted">{row.lineIndex + 1}</td>
-                <td className="px-4 py-3 font-mono text-ink">{row.invoiceId ?? <span className="text-ink-subtle italic">On chain, not in your CSV</span>}</td>
+                <td className="px-4 py-3 font-mono text-ink">{row.invoiceId ?? <span className="text-ink-subtle italic">{vm.chainOnly ? 'Held by the payer' : 'On chain, not in your CSV'}</span>}</td>
                 <td className="px-4 py-3">
                   <AddressDisplay
                     value={row.payee}
@@ -145,7 +148,7 @@ export function LedgerTable({ vm }: Props) {
         {vm.payoutRows.map((row) => (
           <div key={row.lineIndex} className="bg-surface rounded-lg border border-line p-4 shadow-raised">
             <div className="flex items-start justify-between gap-2 mb-1">
-              <span className="font-mono text-sm text-ink">{row.invoiceId ?? <span className="text-ink-subtle italic">On chain, not in CSV</span>}</span>
+              <span className="font-mono text-sm text-ink">{row.invoiceId ?? <span className="text-ink-subtle italic">{vm.chainOnly ? 'Held by the payer' : 'On chain, not in CSV'}</span>}</span>
               <span className="tabular text-sm font-medium text-right">{row.amountDisplay} USDC</span>
             </div>
             <div className="text-xs text-ink-subtle mb-1">

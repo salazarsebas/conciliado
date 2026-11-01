@@ -50,7 +50,7 @@ export interface PayoutRowView {
   amountDisplay: string;           // "0.020000"
   invoiceRef: Hex;
   invoiceRefDisplay: string;       // truncated
-  matchWord: 'Matched' | 'Not matched' | 'Mismatch' | 'Checking';
+  matchWord: 'Matched' | 'Not matched' | 'Mismatch' | 'Checking' | 'Reference only';
   matched: boolean;
   /** True when the ref was found on chain but payee or amount differed. */
   mismatch: boolean;
@@ -96,6 +96,8 @@ export interface LedgerViewModel {
   mismatchedCount: number;
   invoiceCount: number;
   matchSummary: string;              // "6 of 6 matched" or "6 of 6 matched, 0 mismatched"
+  /** True when no invoice list was given: the batch was read by tx hash alone. */
+  chainOnly: boolean;
   tieOut: TieOutView | null;
   warnings: string[];
 }
@@ -118,6 +120,7 @@ export function buildViewModel(
 ): LedgerViewModel {
   const txHash = result.txHash ?? (BATCH_TX);
   const txUrl = explorerTx(txHash);
+  const chainOnly = invoiceList.length === 0;
 
   // Build a map from invoiceRef → invoiceId for the join
   const refToId = new Map<string, string>();
@@ -162,7 +165,7 @@ export function buildViewModel(
     } else if (mismatch) {
       matchWord = 'Mismatch';
     } else {
-      matchWord = 'Not matched';
+      matchWord = chainOnly ? 'Reference only' : 'Not matched';
     }
 
     return {
@@ -232,7 +235,9 @@ export function buildViewModel(
       differenceDisplay = '$0.00';
       differenceExact = '0.000000 USDC';
       differenceWei = '0 wei';
-      resultWord = `Ties out. ${result.matchedCount} of ${invoiceList.length} matched.`;
+      resultWord = chainOnly
+        ? 'Ties out. Difference 0 wei.'
+        : `Ties out. ${result.matchedCount} of ${invoiceList.length} matched.`;
     } else {
       differenceDisplay = `${diffSign}${formatUsd2(diffMicro)}`;
       differenceExact = `${diffSign}${formatMicro6(diffMicro)} USDC`;
@@ -262,7 +267,10 @@ export function buildViewModel(
   // Build matchSummary: include mismatch count when any mismatch exists
   const n = invoiceList.length;
   let matchSummary: string;
-  if (result.mismatchedCount > 0) {
+  if (chainOnly) {
+    const lines = payoutRows.length;
+    matchSummary = `${lines} payment${lines === 1 ? '' : 's'} read from the chain. Invoice IDs stay with the payer.`;
+  } else if (result.mismatchedCount > 0) {
     matchSummary = `${result.matchedCount} of ${n} matched, ${result.mismatchedCount} mismatch${result.mismatchedCount === 1 ? '' : 'es'}`;
   } else {
     matchSummary = `${result.matchedCount} of ${n} matched`;
@@ -284,6 +292,7 @@ export function buildViewModel(
     mismatchedCount: result.mismatchedCount,
     invoiceCount: invoiceList.length,
     matchSummary,
+    chainOnly,
     tieOut,
     warnings: result.warnings,
   };

@@ -256,7 +256,21 @@ export function LandingPage() {
           {/* ── Two panels: invoice list + payments ledger ─────────────────── */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Panel 1: Invoice list (kept) */}
-          <InvoicePanel rows={CSV_ROWS} />
+          {QUERY_TX ? (
+            <div className="bg-surface rounded-lg border border-line shadow-raised p-4">
+              <h2 className="text-xl font-semibold text-ink mb-1">
+                Invoice list{' '}
+                <span className="text-ink-subtle font-normal text-sm">(not loaded)</span>
+              </h2>
+              <p className="text-sm text-ink-subtle">
+                This link reads one batch from the chain: payees, amounts, network fee, and the
+                tie-out to the payer's balance. Invoice IDs are not on chain. The payer keeps them
+                in the invoice CSV.
+              </p>
+            </div>
+          ) : (
+            <InvoicePanel rows={CSV_ROWS} />
+          )}
 
           {/* Panel 2: Payments ledger */}
           <div aria-busy={isLoading} className="bg-surface rounded-lg border border-line shadow-raised p-4">
@@ -432,7 +446,7 @@ export function LandingPage() {
         </div>
 
         {/* Batch tx reference */}
-        <div className="mt-12 pt-8 border-t border-line">
+        {!QUERY_TX && <div className="mt-12 pt-8 border-t border-line">
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-subtle">
             Transaction:
             <a
@@ -444,7 +458,7 @@ export function LandingPage() {
               {truncateHash(BATCH_TX)}
             </a>
           </p>
-        </div>
+        </div>}
       </main>
     </div>
   );
