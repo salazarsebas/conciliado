@@ -14,6 +14,7 @@
     "contracts:build": "forge build",
     "contracts:test": "forge test",
     "test": "bun test src",
+    "test:e2e": "playwright test",
     "ledger:rebuild": "bun run ./scripts/rebuild-ledger.ts",
     "brand:tokens": "bun run ./scripts/brand-tokens.ts",
     "brand:check": "bun run ./scripts/brand-tokens.ts --check"
@@ -44,6 +45,7 @@
     "viem": "^2.56.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/bun": "^1.4.3",
     "@types/node": "^24.0.0",
     "@types/react": "^18.3.12",
