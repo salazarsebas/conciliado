@@ -1,0 +1,28 @@
+# Conciliado
+
+> Pay a batch of contractor invoices in USDC on Arc in one transaction, then rebuild the ledger from chain data alone and tie it to the wallet's balance change.
+
+The app is a static client. There is no server, no database, and no server-held key. The payer's wallet signs every transaction. Invoice IDs stay off chain; only a salted hash goes on chain.
+
+## App
+
+- [Landing](https://conciliado.acachete.xyz/): rebuilds a real mainnet batch in the browser, no wallet needed
+- [Run a batch](https://conciliado.acachete.xyz/run): CSV review, simulation, and payment with a browser wallet
+- [Metrics](https://conciliado.acachete.xyz/metrics): batches and lines read live from Arc mainnet
+- [Landing as Markdown](https://conciliado.acachete.xyz/index.md)
+
+## On chain
+
+- Network: Arc mainnet, chain 5042
+- PayoutBatch: [0xC86e2241166785344E4d6692E4D2A3D4c8466d0e](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e?tab=contract)
+- Batch paid from the app: [0xd4a8008f...972665](https://explorer.arc.io/tx/0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665)
+
+## Docs
+
+- [README](https://github.com/salazarsebas/conciliado/blob/main/README.md)
+- [Agent guide](https://github.com/salazarsebas/conciliado/blob/main/AGENTS.md)
+- [Architecture](https://github.com/salazarsebas/conciliado/blob/main/docs/architecture.md)
+- [Ledger rebuild rules](https://github.com/salazarsebas/conciliado/blob/main/docs/ledger-rebuild.md)
+- [Mainnet deployment record](https://github.com/salazarsebas/conciliado/blob/main/docs/deployments/mainnet.md)
+- [Threat model](https://github.com/salazarsebas/conciliado/blob/main/docs/threat-model.md)
+- [Metrics](https://github.com/salazarsebas/conciliado/blob/main/docs/metrics.md)
