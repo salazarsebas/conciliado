@@ -7,9 +7,9 @@ reconciles by hand.
 Conciliado is two pieces. `PayoutBatch` is a small contract that moves USDC from the payer
 to each payee and emits one event per invoice line. A ledger rebuild reads those events,
 the receipt, and the payer's balances back from Arc and checks that the ledger ties to the
-payer's USDC balance change. The contract and the rebuild are built, and the contract is
-live on Arc mainnet. The web app has a read-only landing page that runs the rebuild in the
-browser and a run-a-batch flow at `/run` (see [Status](#status)).
+payer's USDC balance change. Both are live on Arc mainnet. The web app has a wallet-free
+landing page that runs the rebuild in the browser, a run-a-batch flow at `/run`, and a
+metrics page at `/metrics` (see [Status](#status)).
 
 **Live app:** https://conciliado.acachete.xyz
 
@@ -24,10 +24,10 @@ invoices by hand, with the network fee booked somewhere else, if at all. Concili
 the invoice reference in the payment itself. On Arc, gas is paid in USDC, so the fee is in
 the same unit as the payouts and can be booked next to them.
 
-This README does not quote industry statistics. The only numbers in it come from the first
-real batch, documented in [docs/deployments/mainnet.md](docs/deployments/mainnet.md): six
-invoice lines, 0.195 USDC paid out, a 0.011013954 USDC network fee, and a ledger that
-differs from the payer's balance change by 0.
+This README does not quote industry statistics. The only numbers in it come from the real
+batches documented in [docs/deployments/mainnet.md](docs/deployments/mainnet.md). The batch
+paid from the app has six invoice lines, 0.195 USDC paid out, a 0.008637975 USDC network
+fee, and a ledger that differs from the payer's balance change by 0.
 
 ## Status
 
@@ -40,24 +40,28 @@ differs from the payer's balance change by 0.
 | `PayoutBatch` contract | [`0xC86e2241166785344E4d6692E4D2A3D4c8466d0e`](https://explorer.arc.io/address/0xC86e2241166785344E4d6692E4D2A3D4c8466d0e) |
 | Deploy transaction | [`0xc7d5cba3...ff800f`](https://explorer.arc.io/tx/0xc7d5cba3e626bb8c4449075cb712b58a558928d2f5ce28e0b9d1119841ff800f) |
 | Allow-list setup for the six payees (`addPayees`) | [`0x8d8652df...f89f36`](https://explorer.arc.io/tx/0x8d8652df005fe8cbfccb79afa8ed750c56be365dcd6e58fcdb87f3aaf7f89f36) |
-| First batch: 6 invoice lines, 0.195 USDC, one transaction | [`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056) |
+| First batch, sent by script: 6 invoice lines, 0.195 USDC, one transaction | [`0x50d56ea9...100987056`](https://explorer.arc.io/tx/0x50d56ea910e0412c47a7dc186b5f89ccf7cbe71235db799379874d6100987056) |
 
-The ledger rebuild ties that batch out: 6 of 6 invoice references matched, ledger total
-equal to the payer's balance change, difference $0.00. You can reproduce it with the
-commands [below](#run-it).
+The ledger rebuild ties both batches out: 6 of 6 invoice references matched, ledger total
+equal to the payer's balance change, difference 0 wei. You can reproduce the first with the
+commands [below](#run-it), and the second by opening the
+[rebuild link](https://conciliado.acachete.xyz/?tx=0xd4a8008fc7e1179fda869206b5c14999e47bdebc22f92a6087c942650e972665&network=mainnet).
 
 ### What is a fixture
 
-- `fixtures/mainnet-batch-1.csv` and `fixtures/mainnet-batch-1.json` describe the batch
-  above. The `ledger:rebuild` command takes only the contract, payer, transaction hash,
+- `fixtures/mainnet-batch-1.csv` and `fixtures/mainnet-batch-1.json` describe the first
+  batch. The `ledger:rebuild` command takes only the contract, payer, transaction hash,
   and invoice list from them; every number it prints is read from the chain. The offline
   tests use the same files as recorded chain data.
-- The invoice IDs (`INV-0001` to `INV-0006`) are demo IDs, and the six payees are fresh
-  wallets made for the demo. The money and the transactions are real; the invoices are
-  not.
-- The first batch was sent from the command line, not from an app.
+- The invoice IDs in both batches are demo IDs, and the six payees are fresh wallets made
+  for the demo. The money and the transactions are real; the invoices are not.
 
-### Built: the read-only landing
+### Built: the app
+
+- `/run` takes an invoice CSV, reviews each line, simulates the batch against Arc RPC, and
+  sends one transaction signed in the payer's browser wallet. It then rebuilds the ledger
+  from that transaction.
+- `/metrics` reads batches and lines from Arc mainnet in the browser.
 
 - `/` needs no wallet. It shows the local invoice list (`fixtures/mainnet-batch-1.csv`,
   bundled), the payments ledger as deleted, and a "Rebuild from chain" button. The button
@@ -74,20 +78,14 @@ commands [below](#run-it).
   targets.
 - Run it with `bun run dev`, or `bun run build` and `bunx vite preview`.
 
-### Not built yet
-
-- The demo-path end-to-end test.
-
 Open work is tracked in the [issues](https://github.com/salazarsebas/conciliado/issues).
 
 ### Known issues
 
 - `src/tracing.ts` and `src/console-capture.ts` (Arc Studio scaffold) post RPC parameters
-  and console output to the parent frame. `src/main.tsx` now loads them only inside a frame
-  in dev or with `VITE_ARC_STUDIO_PREVIEW=true`, and a normal `bun run build` leaves them
-  out (checked by searching `dist/`, and by `src/public-build.test.ts`, which builds the
-  production bundle). There is no deployed site yet, so the browser check is still open
-  ([#33](https://github.com/salazarsebas/conciliado/issues/33)).
+  and console output to the parent frame. `src/main.tsx` loads them only inside a frame in
+  dev or with `VITE_ARC_STUDIO_PREVIEW=true`, and a normal `bun run build` leaves them out
+  (checked by `src/public-build.test.ts`, which builds the production bundle).
 - The 200-line gas figure (8,661,135 gas, below the 30,000,000 block gas limit) uses a
   single payee. A 200-line run with distinct payees has not been measured
   ([#31](https://github.com/salazarsebas/conciliado/issues/31) covers the cap itself).
@@ -103,7 +101,7 @@ key. The payer's wallet signs every transaction.
   memory, builds the batch, asks the wallet to sign, and rebuilds the ledger. It reads
   from Arc RPC and never uploads the invoice list. The chain stores only an opaque
   `bytes32` reference per line; the mapping from invoice to reference stays with the
-  payer. Today only the rebuild exists, as a library in `src/ledger/` and a Bun command.
+  payer. The rebuild is a library in `src/ledger/`, also runnable as a Bun command.
 - **On-chain, Arc mainnet.** `PayoutBatch` (`payBatch(lines, expectedTotal)` does one
   `transferFrom(payer, payee, amount)` per line, emits `InvoicePaid` per line and
   `BatchPaid` per batch, and holds no funds); the system contract `Multicall3From`, which
@@ -146,8 +144,8 @@ agents: [system architecture](docs/diagrams/01-system-architecture.md),
 9. It ties out: the ledger total equals the payer's balance change, exactly, in the
    18-decimal native unit.
 
-Steps 5 to 9 are done and reproducible for the first batch. Steps 1 to 4 are the app, at
-`/run`. The rebuild rules (which logs are counted, why the duplicate 18-decimal
+Steps 1 to 4 are the app, at `/run`. Steps 5 to 9 are reproducible for both batches. The
+rebuild rules (which logs are counted, why the duplicate 18-decimal
 `Transfer` logs are ignored, how the fee is rounded) are in
 [docs/ledger-rebuild.md](docs/ledger-rebuild.md).
 
@@ -155,11 +153,11 @@ Steps 5 to 9 are done and reproducible for the first batch. Steps 1 to 4 are the
 
 The product code was authored in [Arc Studio](https://studio.arc.io) and pulled into this
 repo with `arc-studio pull`: the `PayoutBatch` contract and its Foundry tests, the app
-scaffold (`src/`, `scripts/`), and the ledger rebuild library. The Conciliado project in
-Arc Studio is
-[here](https://studio.arc.io/app/00732eb6-0372-4443-b5a3-2fa761fc0c3c); whether it opens
-without an Arc Studio account depends on its sharing settings, which have not been
-checked. Studio also ran its Solidity and functional auditors and Slither on the
+scaffold (`src/`, `scripts/`), the ledger rebuild library, the landing, and the `/run`
+flow. The Conciliado project in Arc Studio is
+[here](https://studio.arc.io/app/00732eb6-0372-4443-b5a3-2fa761fc0c3c). Studio offers no
+public project sharing, so that link may not open for other accounts; the evidence anyone
+can check is this repo and its history. Studio also ran its Solidity and functional auditors and Slither on the
 contract. The findings and what was done about them are in
 [docs/contracts/payout-batch.md](docs/contracts/payout-batch.md). Studio states that its
 review is best effort and not a substitute for a paid third-party audit before real
@@ -167,10 +165,19 @@ funds.
 
 Mainnet was deployed with Arc Foundry because Arc Studio deploys to Arc testnet only. The
 same pulled `contracts/PayoutBatch.sol` went to mainnet unchanged, after `arc-forge test`
-passed (22 passed, 0 failed). The testnet deployment of the Studio iteration is at
+passed (22 passed at deploy time; the suite has 25 today). The testnet deployment of the Studio iteration is at
 [`0x209dd046...1fb6`](https://explorer.testnet.arc.io/address/0x209dd04647d4c103081095176e5f58c5d91e1fb6).
 The Studio to mainnet path was first tried on a throwaway contract, see
 [docs/spikes/arc-studio-path.md](docs/spikes/arc-studio-path.md).
+
+| Area | Where it was made |
+| --- | --- |
+| `contracts/PayoutBatch.sol` and its Foundry tests | Arc Studio |
+| `src/ledger/`, `src/landing/` | Arc Studio |
+| `src/run/` (CSV review, simulate, pay) | Arc Studio |
+| Rebuild retries on load-balanced RPC ([#41](https://github.com/salazarsebas/conciliado/pull/41)) | Repo, after testing the live deploy |
+| Keeping the parsed batch when a wallet connects ([#43](https://github.com/salazarsebas/conciliado/pull/43)) | Repo, after testing the live deploy |
+| Mainnet deploy, Vercel config, E2E tests, metrics page | Repo |
 
 ## Run it
 
@@ -205,14 +212,15 @@ arc-forge test
 
 Expected: `25 tests passed, 0 failed, 0 skipped`. Add `--force` to recompile from scratch.
 
-### 3. Ledger tests
+### 3. App tests
 
 ```bash
 bun run test
 ```
 
-Expected: `110 pass`, `0 fail` (ledger and landing). They run offline against recorded chain
-data in `fixtures/`.
+Expected: `0 fail`. These cover the ledger, landing, and run flow, and run offline against
+recorded chain data in `fixtures/`. The current count is in
+[docs/metrics.md](docs/metrics.md).
 
 ### 4. Rebuild the first mainnet batch, read-only
 
